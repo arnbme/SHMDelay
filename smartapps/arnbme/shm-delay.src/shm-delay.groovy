@@ -1,4 +1,4 @@
-/*
+ /*
  *  Smart Home Entry and Exit Delay and Open Contact Monitor, Parent 
  *  Functions: 
  *		Acts as a container/controller for Child module
@@ -142,8 +142,9 @@ def delayPage()
 			"  1. set the simulated contact device\n"+
 			"  2. set the entry delay time in seconds from 0 to 60. Default:30\n"+
 			" (zero is allowed enabling this app to be used only as an exit delay)\n"+
-			"  3. set the exit delay time in seconds from 0 to 60. Default:30\n"+
+			"  3. For away mode set the exit delay time in seconds from 0 to 60. Default:30\n"+
 			" (When using the lock-manager exit delay, or any other exit delay method, set exit delay to 0)\n"+
+			" (Exit delay is not supported for Stay mode)\n"+
 			"  4. (Optional) set keypads where to sound the entrydelay tones\n"+
 			"  5. (Optional) set sirens where beep should be issued\n"+
 			"  6. Tap 'Next' on top of page\n\n"+
@@ -206,4 +207,4 @@ def initialize() {
     childApps.each {child ->
         log.debug "child app: ${child.label}"
     }
-}
+} 

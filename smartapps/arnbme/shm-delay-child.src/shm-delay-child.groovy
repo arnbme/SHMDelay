@@ -16,7 +16,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *	Aug 14, 2017 v1.0.3  add exit delay time and logic: Do not react to contact opens within exit delay time
+ *	Aug 14, 2017 v1.0.3  add exit delay time and logic: 
+ *					When away mode do not react to contact opens less than exit delay time
  *	Aug 12, 2017 v1.0.2  add log to notifications, fix push and sms not to log, add multiple SMS logic
  *	Aug 12, 2017 v1.0.1  Allow profile to be named by user with Label parameter on pageOne
  *	Aug 12, 2017 v1.0.0  Combine Smart Delay and Door Monitor into this single child SmartApp
@@ -57,7 +58,7 @@ preferences
 			input "theentrydelay", "number", required: true, range: "0..60", defaultValue: 30,
 				title: "Alarm entry delay time in seconds from 0 to 60"
 			input "theexitdelay", "number", required: true, range: "0..60", defaultValue: 30,
-				title: "Alarm exit delay time in seconds from 0 to 60. When using lock-manager app's exit delay, set to 0"
+				title: "When arming in away mode set an exit delay time in seconds from 0 to 60. When using lock-manager app's exit delay, set to 0"
 			input "thekeypad", "capability.button", required: false, multiple: true,
 				title: "Zero or more Optional Keypads: sounds entry delay tone "
 			input "thesiren", "capability.alarm", required: false, multiple: true,
@@ -110,7 +111,7 @@ def alarmStatusHandler(evt)
 	if (evt.value=="off")
 		{
 		unschedule(soundalarm)		//kill any lingering future tasks for delay or monitor
-		unschedule(killit)		//kill any lingering future tasks for delay or monitor
+		killit()				//kill any lingering future tasks for delay or monitor
 		}
 	else
 		{
@@ -136,12 +137,20 @@ def doorOpensHandler(evt)
 	log.debug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt"
 
 //	get current time and alarm time in seconds
-	def now = new Date()
-	def nowSecs = Math.round(now / 1000)	//round back to seconds
-	def alarmSecs = Math.round(lastupdt/1000)
+	def currT = now()
+	def currSecs = Math.round(currT / 1000)	//round back to seconds
+//	log.debug "${currSecs}"
+	def alarmSecs = Math.round( lastupdt / 1000)
+//	log.debug "${alarmSecs}"
 
 //	alarmstaus values: off, stay, away
-	if ((alarmstatus == "stay" || alarmstatus == "away") && nowSecs - alarmSecs > theexitdelay)
+//	check first if this is an exit delay in away mode, if yes monitor the door, else its an alarm
+	if (alarmstatus == "away" && currSecs - alarmSecs < theexitdelay)
+		{
+		new_monitor()
+		}
+	else	
+	if (alarmstatus == "stay" || alarmstatus == "away")
 		{
 //		When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
 		if (settings.thekeypad)
@@ -157,6 +166,7 @@ def doorOpensHandler(evt)
 
 //		Trigger Alarm in theentrydelay seconds by opening the virtual sensor.
 //		Do not delay alarm when additional triggers occur by using overwrite: false
+		def now = new Date()
 		def runTime = new Date(now.getTime() + (theentrydelay * 1000))
 		runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt], overwrite: false]) 
 		}
@@ -186,6 +196,7 @@ def soundalarm(data)
 def new_monitor()
 	{
 	log.debug "new_monitor called: cycles: $maxcycles"
+	unschedule(checkStatus)
 	state.cycles = maxcycles
 	def now = new Date()
 	def runTime = new Date(now.getTime() + (themonitordelay * 60000))
@@ -290,4 +301,4 @@ def checkStatus()
 		killit()
 		}
 
-	}
+	}	
