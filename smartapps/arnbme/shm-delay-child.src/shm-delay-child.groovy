@@ -16,6 +16,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Aug 15, 2017 v1.0.4  fill Label with sendor name 
  *	Aug 14, 2017 v1.0.3  add exit delay time and logic: 
  *					When away mode do not react to contact opens less than exit delay time
  *	Aug 12, 2017 v1.0.2  add log to notifications, fix push and sms not to log, add multiple SMS logic
@@ -34,22 +35,54 @@ definition(
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
     iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
 
-preferences 
+preferences {
+    page(name: "pageOne", nextPage: "pageTwo")
+    page(name: "pageTwo", nextPage: "pageThree")
+    page(name: "pageThree")
+}
+
+def pageOne()
 	{
-	page(name: "pageOne", title: "Contact sensors, must remove from SmartHome monitoring", nextPage: "pageTwo", uninstall: true)
+	dynamicPage(name: "pageOne", title: "Contact sensors, must remove from SmartHome monitoring", uninstall: true)
 		{
 		section("")
 			{
 			input "thecontact", "capability.contactSensor", required: true, multiple:true,
-				title: "One or more contact sensors"
+				title: "One or more contact sensors", submitOnChange: true
 			}
-		section([mobileOnly:true]) 
+/*		if (thecontact)		//causes some wierd page not found error aaaagh frustrating
+						also fails in log debug install WTF
 			{
-	            label title: "Assign a profile name", required: false
-	            }
-		}
+			def devLabel = thecontact.getLabel
+			if (devLabel)
+				log.debug "the label ${devLabel}"
+			log.debug "the contact ${thecontact.displayName}"
+			}
+		else
+			{
+			log.debug "no contact sensor available"
+			}
+*/		if (thecontact)
+			{
+			section([mobileOnly:true]) 
+				{
+				label title: "Profile name", defaultValue: "Profile: ${thecontact.displayName}", required: false
+				}
 
-	page(name: "pageTwo", title: "Contact Delay Controls", nextPage: "pageThree", uninstall: true)
+			}	
+		else	
+			{
+			section([mobileOnly:true]) 
+				{
+				label title: "Profile name", required: false
+				}
+			}	
+		}
+	}
+
+def pageTwo()
+	{
+	dynamicPage(name: "pageTwo", title: "Contact Delay Controls", uninstall: true)
 		{
 		section("") 
 			{
@@ -65,8 +98,11 @@ preferences
 				title: "Zero or more Optional Sirens to Beep"
 			}
 		}
+	}	
 
-	page(name: "pageThree", title: "SmartHome arming with open contacts", install: true, uninstall: true)
+def pageThree()
+	{
+	dynamicPage(name: "pageThree", title: "SmartHome arming with open contacts", install: true, uninstall: true)
 		{
 		section("")
 			{
