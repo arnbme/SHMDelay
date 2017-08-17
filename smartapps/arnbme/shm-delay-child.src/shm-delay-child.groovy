@@ -16,7 +16,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *	Aug 15, 2017 v1.0.4  fill Label with sendor name 
+ * 	Aug 16, 2017 v1.0.6  add logic check if sensors for unique usage. Stop on real sensor, Warn on simulated
+ *	Aug 16, 2017 v1.0.5  add verification editing on sensors and illogical conditions
+ *	Aug 15, 2017 v1.0.4  fill Label with real sensor name
  *	Aug 14, 2017 v1.0.3  add exit delay time and logic: 
  *					When away mode do not react to contact opens less than exit delay time
  *	Aug 12, 2017 v1.0.2  add log to notifications, fix push and sms not to log, add multiple SMS logic
@@ -36,33 +38,33 @@ definition(
     iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
 
 preferences {
-    page(name: "pageOne", nextPage: "pageTwo")
-    page(name: "pageTwo", nextPage: "pageThree")
-    page(name: "pageThree")
+    page(name: "pageOne", nextPage: "pageOneVerify")
+    page(name: "pageOneVerify")
+    page(name: "pageTwo", nextPage: "pageTwoVerify")
+    page(name: "pageTwoVerify")
+    page(name: "pageThree", nextPage: "pageThreeVerify")
 }
 
-def pageOne()
+
+def pageOne(error_data)
 	{
-	dynamicPage(name: "pageOne", title: "Contact sensors, must remove from SmartHome monitoring", uninstall: true)
+	dynamicPage(name: "pageOne", title: "The Contact Sensors", uninstall: true)
 		{
-		section("")
+		section
 			{
-			input "thecontact", "capability.contactSensor", required: true, multiple:true,
-				title: "One or more contact sensors", submitOnChange: true
+			if (error_data instanceof String )
+				{
+				paragraph error_data
+				}
+			input "thecontact", "capability.contactSensor", required: true, 
+				title: "Real Contact Sensor (Remove from SmartHome Monitoring)", submitOnChange: true
 			}
-/*		if (thecontact)		//causes some wierd page not found error aaaagh frustrating
-						also fails in log debug install WTF
-			{
-			def devLabel = thecontact.getLabel
-			if (devLabel)
-				log.debug "the label ${devLabel}"
-			log.debug "the contact ${thecontact.displayName}"
+		section
+			{	
+			input "thesimcontact", "capability.contactSensor", required: true,
+				title: "Simulated Contact Sensor (Must Monitor in SmartHome)"
 			}
-		else
-			{
-			log.debug "no contact sensor available"
-			}
-*/		if (thecontact)
+		if (thecontact)
 			{
 			section([mobileOnly:true]) 
 				{
@@ -80,14 +82,140 @@ def pageOne()
 		}
 	}
 
-def pageTwo()
+
+/*	Cant find a way to get the actual device type, so test manufacturer and model for null */
+/*    When a method is found test for word simulated	*/
+//				def str=error_data.toString()
+//				paragraph str
+def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	dynamicPage(name: "pageTwo", title: "Contact Delay Controls", uninstall: true)
+	def error_data
+	def pageTwoWarning
+	if (thecontact)
+		{
+		if (thecontact.getManufacturerName() == null && thecontact.getModelName()==null)
+			{
+			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
+/*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
+				for some reason the prior line is not seen as a string
+*/			}
+		else
+		if (!iscontactUnique())			
+			{
+			error_data="The 'Real Contact Sensor' is already in use. Please select a differant real contact sensor or tap 'Remove'"
+			}
+		}	
+
+	if (thesimcontact)
+		{
+		if (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null)
+			{
+			if (!issimcontactUnique())
+				{
+				if (error_data!=null)
+					{
+					error_data+="\n\nWarning: 'Simulated Contact Sensor' already in use"
+					}
+				else
+					{
+					pageTwoWarning="Warning: 'Simulated Contact Sensor' already in use. Tap 'Back' to change device"
+					}
+				}	
+			}	
+		else
+			{
+			def msg="The 'Simulated Contact Sensor' is real. Please select a differant simulated contact sensor or tap 'Remove'"
+			if (error_data!=null)
+				{
+				error_data+="\n\n"+msg
+				}
+			else
+				{
+				error_data=msg
+				}
+			}
+		}	
+	if (error_data!=null)
+		{
+		pageOne(error_data)
+		}
+	else
+//	if (pageTwoWarning == null)	
+//		{
+//		pageTwo()
+//		}
+//	else
+		{
+		pageTwo(pageTwoWarning)
+		}
+	}	
+
+def iscontactUnique()
+	{
+	def unique = true
+	def children = parent?.getChildApps()
+//  	log.debug "there are ${children.size()} apps"
+//	log.debug "this contact id: ${thecontact.getId()}"
+//	log.debug "app install: ${app.getInstallationState()}"
+//	log.debug "app id: ${app?.getId()}"
+//	def myState = app.currentState()
+//	log.debug "current app id: ${myState}"	
+//	log.debug current app Id "${myState.getId()}"
+	children.each
+		{ child ->
+//		log.debug "child app id: ${child.getId()}"	
+//		log.debug "child contact Id: ${child.thecontact.getId()}"	
+		if (child.thecontact.getId() == thecontact.getId() &&
+		    child.getId() != app.getId())
+			{
+			unique=false
+			}
+		}
+	return unique
+	}
+
+def issimcontactUnique()
+	{
+	def unique = true
+	def children = parent?.getChildApps()
+	children.each
+		{ child ->
+		if (child.thesimcontact.getId() == thesimcontact.getId() &&
+		    child.getId() != app.getId())
+			{
+			unique=false
+			}
+		}
+	return unique
+	}
+
+/*  cant make this work in java
+def isUnique(contact)
+	{
+	def unique = true
+	def children = parent?.getChildApps()
+	children.each
+		{ child ->
+		if (child.${contact}.getId() == ${contact}.getId() &&
+		    child.getId() != app.getId())
+			{
+			unique=false
+			}
+		}
+	return unique
+	}
+*/	
+
+def pageTwo(error_data)
+	{
+	dynamicPage(name: "pageTwo", title: "Entry and Exit Data", uninstall: true)
 		{
 		section("") 
 			{
-			input "thesimcontact", "capability.contactSensor", required: true,
-				title: "Simulated Contact Sensor, monitored by SmartHome"
+			if (error_data instanceof String )
+				{
+				paragraph "${error_data}"
+				}
 			input "theentrydelay", "number", required: true, range: "0..60", defaultValue: 30,
 				title: "Alarm entry delay time in seconds from 0 to 60"
 			input "theexitdelay", "number", required: true, range: "0..60", defaultValue: 30,
@@ -95,17 +223,46 @@ def pageTwo()
 			input "thekeypad", "capability.button", required: false, multiple: true,
 				title: "Zero or more Optional Keypads: sounds entry delay tone "
 			input "thesiren", "capability.alarm", required: false, multiple: true,
-				title: "Zero or more Optional Sirens to Beep"
+				title: "Zero or more Optional Sirens to Beep on entry delay"
 			}
 		}
 	}	
 
-def pageThree()
+def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	dynamicPage(name: "pageThree", title: "SmartHome arming with open contacts", install: true, uninstall: true)
+	def error_data
+	if (theentrydelay < 1 && theexitdelay < 1)
+		{
+		if (error_data!=null)
+			{
+			error_data+="\n\nIllogical condition: entry and exit delays are both zero"
+			}
+		else
+			{
+			error_data="Illogical condition: entry and exit delays are both zero"
+			}
+		}	
+	if (error_data!=null)
+		{
+		pageTwo(error_data)
+		}
+	else 
+		{
+		pageThree()
+		}
+	}
+
+
+def pageThree(error_data)
+	{
+	dynamicPage(name: "pageThree", title: "Monitor: SmartHome changed to armed and this contact is open", install: true, uninstall: true)
 		{
 		section("")
 			{
+			if (error_data instanceof String )
+				{
+				paragraph "${error_data}"
+				}
 			input "maxcycles", "number", required: false, range: "1..99", defaultValue: 2,
 				title: "Maximum number of warning messages"
 			input "themonitordelay", "number", required: false, range: "1..15", defaultValue: 1,
@@ -119,6 +276,25 @@ def pageThree()
 			}
 		}
 	}	
+
+def pageThreeVerify() 				//edit page three info
+	{
+	def error_data
+	if (theLog || thesendPush || phone) 
+		{}
+	else
+		{
+		error_data="Please change settings to log the error message"
+		}
+	if (error_data!=null)
+		{
+		pageThree(error_data)
+		}
+//	else 
+//		{
+//		pageOne()
+//		}
+	}
 
 
 def installed() {
@@ -137,7 +313,7 @@ def initialize()
 	subscribe(location, "alarmSystemStatus", alarmStatusHandler)
 	subscribe(thecontact, "contact.open", doorOpensHandler)
 	subscribe(thecontact, "contact.closed", contactClosedHandler)	//open door monitor
-	}
+	}	
 
 /******** Common Routine monitors the alarm state for changes ********/
 
