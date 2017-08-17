@@ -170,22 +170,24 @@ def createSimPage()
 		{
 		section 
 			{
-			paragraph " 1. Login to the IDE at https://graph.api.smartthings.com\n"+
-			" 2. Click 'My Locations'\n"+
-			" 3. Under 'Name' click on the named location\n"+
+			href title: "1. Go to graph.api.smartthings.com", style: "external", 
+				url: "https://graph.api.smartthings.com"
+			paragraph " 2. Login\n"+
+			" 3. Click 'My Locations'\n"+
+			" 4. Under 'Name' click on the named location\n"+
 			" (The URL changes to the server name servicing this location. Smarthings calls this a shard)\n"+
-			" 4. Click 'My Devices'\n"+ 
-			" 5. Click the 'New Device' Button\n"+
-			" 6. Name: this can be whatever you want. Suggest adding 'SIM ' to the beginning of the real device's name. For example: SIM Front Door Sensor.\n"+ 
-			" 7. Label: this is optional and can be whatever you want.\n"+ 
-			" 8. Device Network Id: This can be anything you want, but it cannot duplicate other device ID's. For example SIM01.\n"+
-			" 9. Zigbee Id: leave blank\n"+ 
-			"10. Type: from the dropdown select 'Simulated Contact Sensor'\n"+
-			"11. Version: select 'Published'\n"+
-			"12. Location: from the dropdown select your location name\n"+ 
-			"13. Hub: from the dropdown select your hub name.\n"+ 
-			"14. Group: you won't be able to select when creating, but these are Groups you may have created in the Things page in the SmartThings app.\n"+ 
-			"15. Click Create" 
+			" 5. On top menu: Click 'My Devices'\n"+ 
+			" 6. Click the 'New Device' button\n"+
+			" 7. Name: this can be whatever you want. Suggest adding 'SIM ' to the beginning of the real device's name. For example: SIM Front Door Sensor.\n"+ 
+			" 8. Label: this is optional and can be whatever you want.\n"+ 
+			" 9. Device Network Id: This can be anything you want, but it cannot duplicate other device ID's. For example SIM01.\n"+
+			"10. Zigbee Id: leave blank\n"+ 
+			"11. Type: from the dropdown select 'Simulated Contact Sensor'\n"+
+			"12. Version: select 'Published'\n"+
+			"13. Location: from the dropdown select your location name\n"+ 
+			"14. Hub: from the dropdown select your hub name.\n"+ 
+			"15. Group: you won't be able to select when creating, but these are Groups you may have created in the Things page in the SmartThings app.\n"+ 
+			"16. Click Create" 
 			}
 		}
 	}
