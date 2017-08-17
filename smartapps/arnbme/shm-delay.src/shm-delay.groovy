@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Aug 17, 2017 v1.0.5  Revise documentation prior to release
  *	Aug 14, 2017 v1.0.4  Revise documentation for exit delay, split about page into about and installation pages
  *	Aug 14, 2017 v1.0.3  Revise initial setup testing app.getInstallationState() for COMPLETE vs childApps.size
  *					done in v1.0.1
@@ -97,12 +98,15 @@ def aboutPage()
 	{
 	dynamicPage(name: "aboutPage", title: "Introduction")
 		{
-		section
+		section 
 			{
 			paragraph "This smartapp simulates the Entry and Exit Delay parameters currently missing in SmartHome, "+
 			"giving you some time on entry to disarm the system using any method you choose prior to triggering an intrusion alert, "+
 			"and does not trigger an intrusion when a monitored contact sensor opens during the exit delay time."+
-			" It also replaces the 'Open contact when system is armed' monitor for the monitored contact, lost by removing the contact sensor from SmartHome."
+			" It also replaces the 'Open contact when system is armed' monitor for the monitored contact, lost when removing the contact sensor from SmartHome.\n\n"+
+ 			"***Please Note***: SmartHome is fully armed during operation of this SmartApp. Tripping a non-simulated sensor"+ 
+ 			" immediately triggers an intrusion alert."
+			
 			}
 		}
 	}
@@ -116,7 +120,7 @@ def installPage()
 			paragraph "Installation:\n"+
 			"Please complete the install by clicking 'Done' on the main page before creating your first profile.\n\n"+
 			"Prerequisites:\n"+
-			"  1. For each contact sensor to be monitored, create a simulated contact sensor in the IDE."+
+			"  1. For each contact sensor to be monitored, create a simulated contact sensor in the IDE. "+
 			"The name of this device is used by SmartHome on intrusion alert messages.\n"+
 			"  2. Remove the real contact sensor from SmartHome security monitoring. "+
 			"This app monitors this device and includes a replacement for the SmartHome 'system armed with open contact' monitor.\n"+
@@ -133,31 +137,29 @@ def delayPage()
 		section
 			{
 			paragraph "Define a profile for each real contact sensor removed from SmartHome's monitoring, "+
-			"pairing it with a unique simulated contact sensor.\n"+ 
+			"pairing it with a simulated contact sensor.\n"+ 
 			"Start by tapping 'Create A New Delay Profile'\n"+
-			"  1. select one (or more*) real contact sensors\n"+
-			"  2. Enter a name for this profile. Example: Front Door (optional but recommended)\n"+
-			"  3. Tap 'Next' on top of page\n\n"+
-			"The 'Delay Controls' page displays\n"+
-			"  1. set the simulated contact device\n"+
-			"  2. set the entry delay time in seconds from 0 to 60. Default:30\n"+
+			"  1. select a real contact sensor\n"+
+			"  2. select a simulated contact device\n"+
+			"  3. Profile name is internally set to Profile: (real contact sensor name) It may be modified\n"+
+			"  4. Tap 'Next' on top of page\n\n"+
+			"The 'Entry and Exit Data' page displays\n"+
+			"  1. set the entry delay time in seconds from 0 to 60. Default:30\n"+
 			" (zero is allowed enabling this app to be used only as an exit delay)\n"+
-			"  3. For away mode set the exit delay time in seconds from 0 to 60. Default:30\n"+
+			"  2. For away mode set the exit delay time in seconds from 0 to 60. Default:30\n"+
 			" (When using the lock-manager exit delay, or any other exit delay method, set exit delay to 0)\n"+
-			" (Exit delay is not supported for Stay mode)\n"+
-			"  4. (Optional) set keypads where to sound the entrydelay tones\n"+
-			"  5. (Optional) set sirens where beep should be issued\n"+
-			"  6. Tap 'Next' on top of page\n\n"+
-			"The 'Armed with Open Contact' Messaging' page displays\n"+
+			" (Exit delay is not active on Stay or Night mode)\n"+
+			"  3. (Optional) set keypads where to sound the entrydelay tones\n"+
+			"  4. (Optional) set sirens where beep should be issued\n"+
+			"  5. Tap 'Next' on top of page\n\n"+
+			"The 'Monitor: SmartHome changed to armed and this contact is open' page displays\n"+
 			"  1. set the maximum number of warning messages. Default: 2, Minimum: 1\n"+
 			"  2. set the number of minutes between messages from 1 to 15. Default: 1\n"+
 			"  3. set if the open door message should show in the notifications log. Default: true\n"+
 			"  4. set if the open door message should be issued as an application notification. Default: true\n"+
 			"  5. set if the open door message should be sent by text (SMS) message. Default: false\n"+
 			"  Enter telephone number. Separate multiple numbers with a semicolon(;)\n"+
-			"  6. Tap 'Done' on top of page\n\n"+
-			" *Please note: this app allows multiple real "+
-			"contact sensors to be paired with one simulated contact sensor, but it is not recommended." 
+			"  6. Tap 'Done' on top of page\n\n"
 			}
 		}
 	}

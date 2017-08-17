@@ -3,6 +3,8 @@
  *	Functions: 
  *		Simulate contact entry delay missing from SmartHome.					
  *		Since contact is no longer monitored by SmartHome, monitor it for "0pen" status when system is armed
+ *	Warning: SmartHome is fully armed during operation of this SmartApp. Tripping any non simulated sensor 
+ *			immediately triggers an intrusion alert
  *
  * 
  *  Copyright 2017 Arn Burkhoff
@@ -16,6 +18,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 17, 2017 v1.0.6a require simulated sensor to be unique
  * 	Aug 16, 2017 v1.0.6  add logic check if sensors for unique usage. Stop on real sensor, Warn on simulated
  *	Aug 16, 2017 v1.0.5  add verification editing on sensors and illogical conditions
  *	Aug 15, 2017 v1.0.4  fill Label with real sensor name
@@ -114,11 +117,13 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 				{
 				if (error_data!=null)
 					{
-					error_data+="\n\nWarning: 'Simulated Contact Sensor' already in use"
+// Aug 17, 2017			error_data+="\n\nWarning: 'Simulated Contact Sensor' already in use"
+					error_data+="\n\nThe 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
 					}
 				else
 					{
-					pageTwoWarning="Warning: 'Simulated Contact Sensor' already in use. Tap 'Back' to change device"
+// Aug 17, 2017			pageTwoWarning="Warning: 'Simulated Contact Sensor' already in use. Tap 'Back' to change device"
+					error_data="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
 					}
 				}	
 			}	
