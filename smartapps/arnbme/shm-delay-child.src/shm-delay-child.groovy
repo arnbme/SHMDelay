@@ -18,6 +18,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 19, 2017 v1.0.7a A community created DTH did not set a manufacturer or model
+ *					causing the device reject as a real device. Add test for battery.
+ *					simulated devices dont have batteries (hopefully)		
  * 	Aug 19, 2017 v1.0.7  simulated sensor being unique or not is controlled by switch globalSimUnique in parent
  * 	    			   when globalIntrusionMsg is true, issue notifications 
  * 	    			   Open door monitor failing due to single vs multiple sensor definition adjust code
@@ -100,7 +103,8 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	def pageTwoWarning
 	if (thecontact)
 		{
-		if (thecontact.getManufacturerName() == null && thecontact.getModelName()==null)
+		if (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
+		    thecontact.currentState("battery") == null)
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -115,7 +119,8 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 
 	if (thesimcontact)
 		{
-		if (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null)
+		if (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
+		    thesimcontact.currentState("battery") == null)
 			{
 			if (!issimcontactUnique())
 				{
