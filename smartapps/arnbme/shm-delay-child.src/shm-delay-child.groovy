@@ -18,6 +18,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 19, 2017 v1.0.7  simulated sensor being unique or not is controlled by switch globalSimUnique in parent
+ * 	    			   when globalIntrusionMsg is true, issue notifications 
+ * 	    			   Open door monitor failing due to single vs multiple sensor definition adjust code
+ *					to run as single for now	
  * 	Aug 17, 2017 v1.0.6a require simulated sensor to be unique
  * 	Aug 16, 2017 v1.0.6  add logic check if sensors for unique usage. Stop on real sensor, Warn on simulated
  *	Aug 16, 2017 v1.0.5  add verification editing on sensors and illogical conditions
@@ -115,15 +119,25 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			{
 			if (!issimcontactUnique())
 				{
+				if (parent?.globalSimUnique)
+					{
+					if (error_data!=null)
+						{
+						error_data+="\n\nThe 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
+						}
+					else
+						{
+						error_data="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
+						}
+					}
+				else
 				if (error_data!=null)
 					{
-// Aug 17, 2017			error_data+="\n\nWarning: 'Simulated Contact Sensor' already in use"
-					error_data+="\n\nThe 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
+					error_data+="\n\nNotice: 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
 					}
 				else
 					{
-// Aug 17, 2017			pageTwoWarning="Warning: 'Simulated Contact Sensor' already in use. Tap 'Back' to change device"
-					error_data="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
+					pageTwoWarning="Notice: 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
 					}
 				}	
 			}	
@@ -260,7 +274,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 
 def pageThree(error_data)
 	{
-	dynamicPage(name: "pageThree", title: "Monitor: SmartHome changed to armed and this contact is open", install: true, uninstall: true)
+	dynamicPage(name: "pageThree", title: "Open door monitor and notification settings", install: true, uninstall: true)
 		{
 		section("")
 			{
@@ -269,9 +283,10 @@ def pageThree(error_data)
 				paragraph "${error_data}"
 				}
 			input "maxcycles", "number", required: false, range: "1..99", defaultValue: 2,
-				title: "Maximum number of warning messages"
+				title: "Maximum number of open door warning messages"
 			input "themonitordelay", "number", required: false, range: "1..15", defaultValue: 1,
-				title: "Number of minutes between messages from 1 to 15"  	
+				title: "Number of minutes between open door messages from 1 to 15"  	
+			paragraph "Folowing settings are used with Open Door and optional Intrusion messages"
 			input "theLog", "bool", required: false, defaultValue:true,
 				title: "Log to Notifications?"
 			input "thesendPush", "bool", required: false, defaultValue:true,
@@ -404,6 +419,33 @@ def soundalarm(data)
 		log.debug "alarm triggered"
 		thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
 		thesimcontact.open()
+
+//		Aug 19, 2017 issue optional intrusion notificaion messages
+		if (parent?.globalIntrusionMsg)
+			{
+//			log.debug "sending global intrusion message "
+//			get names of open contacts for message
+			def door_names = thecontact.displayName	//name of each switch in a list(array)
+			def message = "${door_names} intrusion detected (SHM Delay App)"
+	
+	//		log, send notification, SMS message	
+			if (theLog)
+				{
+				sendNotificationEvent(message)
+				}
+			if (thesendPush)
+				{
+				sendPushMessage(message)
+				}
+			if (phone)
+				{
+				def phones = phone.split(";")
+				for (def i = 0; i < phones.size(); i++)
+					{
+					sendSmsMessage(phones[i], message)
+					}
+				}
+			}	
 		thesimcontact.close([delay: 4000])
 		}
 	unschedule(soundalarm)					//kill any lingering tasks caused by using overwrite false on runIn
@@ -428,15 +470,21 @@ def killit()
 	}
 
 def countopenContacts() {
-	log.debug "countopenContacts entered"
+//	Aug 19, 2017 returning 0 on open door. comment out multipe support for now
 	def curr_contacts = thecontact.currentContact	//status of each contact in a list(array)
+	log.debug "countopenContacts entered ${curr_contacts}"
 //	count open contacts	
-	def open_contacts = curr_contacts.findAll 
+/*	def open_contacts = curr_contacts.findAll 
 		{
 		contactVal -> contactVal == "open" ? true : false
 		}
 	log.debug "countopenContacts exit with count: ${open_contacts.size()}"
 	return (open_contacts.size())
+*/
+	if (curr_contacts == "open")
+		return 1
+	else
+		return 0
 	}
 
 def contactClosedHandler(evt) 
@@ -467,11 +515,11 @@ def checkStatus()
 
 //		get names of open contacts for message
 		def curr_contacts= thecontact.currentContact	//status of each switch in a list(array)
-		def name_contacts= thecontact.displayName		//name of each switch in a list(array)
+/*		def name_contacts= thecontact.displayName		//name of each switch in a list(array)
 		def door_names="";
 		def door_sep="";
 		def ikey=0
-		curr_contacts.each
+		curr_contacts.each		//fails when not defined as multiple contacts
 			{ value -> 
 			if (value=="open")
 				{
@@ -486,8 +534,10 @@ def checkStatus()
 				door_names+=" are open"
 			else	
 				door_names+=" is open"
-			}	
-		def message = "System is armed, but ${door_names}"
+			}
+*/			
+		def door_names = thecontact.displayName
+		def message = "${door_names} is open, system armed"
 		if (state.cycles<1)
 			message+=" (Final Warning)"
 //		log, send notification, SMS message	

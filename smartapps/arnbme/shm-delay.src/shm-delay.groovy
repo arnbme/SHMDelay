@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Aug 19, 2017 v1.0.6  Add global options allowing non unique simulated sensors, and alarm trigger messages					and for 
  *	Aug 17, 2017 v1.0.5  Revise documentation prior to release
  *	Aug 14, 2017 v1.0.4  Revise documentation for exit delay, split about page into about and installation pages
  *	Aug 14, 2017 v1.0.3  Revise initial setup testing app.getInstallationState() for COMPLETE vs childApps.size
@@ -55,14 +56,27 @@ def main()
 				{
 				app(name: "EntryDelayProfile", appName: "SHM Delay Child", namespace: "arnbme", title: "Create A New Delay Profile", multiple: true)
 				}
+			section (hideable: true, hidden: true, "Global Application Settings")
+				{
+				input "globalSimUnique", "bool", required: false, defaultValue:true,
+					title: "Simulated sensors must be unique?"
+				input "globalIntrusionMsg", "bool", required: false, defaultValue: false,
+					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, suggest this be set on."
+				}	
 			}
 		else	{
 			section 
 				{
-				paragraph "Please read the documentation, then complete the install by clicking 'Done' above before creating your first profile"
-//				app(name: "EntryDelayProfile", appName: "Shm Delay Child", namespace: "arnbme", title: "Create A New Delay Profile", multiple: true)
+				paragraph "Please read the documentation, set optional global settings, then complete the install by clicking 'Done' above before creating your first profile"
 				}
-			}
+			section (hideable: true, hidden: false, "Global Application Settings")
+				{
+				input "globalSimUnique", "bool", required: false, defaultValue:true,
+					title: "Simulated sensors must be unique?"
+				input "globalIntrusionMsg", "bool", required: false, defaultValue: false,
+					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, suggest this be set on."
+				}	
+			}	
 		section
 			{
 			href(name: "href",
@@ -119,13 +133,19 @@ def installPage()
 			{
 			paragraph "Installation:\n"+
 			"Please complete the install by clicking 'Done' on the main page before creating your first profile.\n\n"+
+			"We suggest creating a unique simulated contact sensor for each real contct sensor, however "+
+			"should you prefer to use one simulated sensor for all your real sensors, expand the Global "+
+			"Application Settings, then set:\n"+
+			" 1. Simulated sensors must be unique? Off/False\n"+
+			" 2. Send intrusion notification with name of triggering real sensor? On/True\n\n"+
 			"Prerequisites:\n"+
-			"  1. For each contact sensor to be monitored, create a simulated contact sensor in the IDE. "+
-			"The name of this device is used by SmartHome on intrusion alert messages.\n"+
-			"  2. Remove the real contact sensor from SmartHome security monitoring. "+
-			"This app monitors this device and includes a replacement for the SmartHome 'system armed with open contact' monitor.\n"+
-			"  3. Add the simulated contact sensor to SmartHome security monitoring. "+
-			"This app 'opens' this device, creating a SmartHome intrusion alert."
+			" 1. When using unique simulated contact sensors: For each contact sensor to be monitored, create a simulated contact sensor in the IDE.\n"+
+			"    When using non unique simulated contact sensors: Create at least one simulated contact sensor in the IDE.\n"+
+			"The name of the simulated sensor device is used by SmartHome on intrusion alert messages.\n\n"+
+			" 2. Remove the real contact sensor from SmartHome security monitoring. "+
+			"This app monitors this device and includes a replacement for the SmartHome 'system armed with open contact' monitor.\n\n"+
+			" 3. Add each simulated contact sensor to SmartHome's security monitoring. "+
+			"This app 'opens' the paired simulated sensor device, creating a SmartHome intrusion alert."
 			}
 		}
 	}
@@ -152,12 +172,14 @@ def delayPage()
 			"  3. (Optional) set keypads where to sound the entrydelay tones\n"+
 			"  4. (Optional) set sirens where beep should be issued\n"+
 			"  5. Tap 'Next' on top of page\n\n"+
-			"The 'Monitor: SmartHome changed to armed and this contact is open' page displays\n"+
-			"  1. set the maximum number of warning messages. Default: 2, Minimum: 1\n"+
-			"  2. set the number of minutes between messages from 1 to 15. Default: 1\n"+
-			"  3. set if the open door message should show in the notifications log. Default: true\n"+
-			"  4. set if the open door message should be issued as an application notification. Default: true\n"+
-			"  5. set if the open door message should be sent by text (SMS) message. Default: false\n"+
+			"The 'Open Door Monitor and Notifications' page displays\n"+
+			"  Open Door Message Settings\n"+ 
+			"  1. set the maximum number of open door warning messages. Default: 2, Minimum: 1\n"+
+			"  2. set the number of minutes between open door messages from 1 to 15. Default: 1\n\n"+
+			"  Notifcation Settings for Open Door and optional Intrusion Alert messages\n"+ 	
+			"  3. should the message show in the notifications log. Default: true\n"+
+			"  4. should the message be issued as an application push notification. Default: true\n"+
+			"  5. should the message be sent by text (SMS) message. Default: false\n"+
 			"  Enter telephone number. Separate multiple numbers with a semicolon(;)\n"+
 			"  6. Tap 'Done' on top of page\n\n"
 			}
