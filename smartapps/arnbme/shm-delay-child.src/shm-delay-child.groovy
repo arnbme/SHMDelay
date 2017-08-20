@@ -18,6 +18,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 20, 2017 v1.0.7b When globalIntrusionMsg is true suppress non unique sensor notice messages
  * 	Aug 19, 2017 v1.0.7a A community created DTH did not set a manufacturer or model
  *					causing the device reject as a real device. Add test for battery.
  *					simulated devices dont have batteries (hopefully)		
@@ -136,13 +137,16 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 						}
 					}
 				else
+				if (parent?.globalIntrusionMsg)
+					{}
+				else	
 				if (error_data!=null)
 					{
-					error_data+="\n\nNotice: 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					error_data+="\n\nNotice: Intrusion messages are off,  but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
 					}
 				else
 					{
-					pageTwoWarning="Notice: 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					pageTwoWarning="Notice: Intrusion messages are off, but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
 					}
 				}	
 			}	

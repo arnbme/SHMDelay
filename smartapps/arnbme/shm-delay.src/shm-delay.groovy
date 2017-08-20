@@ -14,7 +14,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *	Aug 19, 2017 v1.0.6  Add global options allowing non unique simulated sensors, and alarm trigger messages					and for 
+ *	Aug 20, 2017 v1.0.6a Change default global options: non-unique to false, create intrusion messages to true
+ *					update documentation
+ *	Aug 19, 2017 v1.0.6  Add global options allowing non unique simulated sensors, and alarm trigger messages
  *	Aug 17, 2017 v1.0.5  Revise documentation prior to release
  *	Aug 14, 2017 v1.0.4  Revise documentation for exit delay, split about page into about and installation pages
  *	Aug 14, 2017 v1.0.3  Revise initial setup testing app.getInstallationState() for COMPLETE vs childApps.size
@@ -58,10 +60,10 @@ def main()
 				}
 			section (hideable: true, hidden: true, "Global Application Settings")
 				{
-				input "globalSimUnique", "bool", required: false, defaultValue:true,
-					title: "Simulated sensors must be unique?"
-				input "globalIntrusionMsg", "bool", required: false, defaultValue: false,
-					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, suggest this be set on."
+				input "globalSimUnique", "bool", required: false, defaultValue:false,
+					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
+				input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
+					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
 				}	
 			}
 		else	{
@@ -71,10 +73,10 @@ def main()
 				}
 			section (hideable: true, hidden: false, "Global Application Settings")
 				{
-				input "globalSimUnique", "bool", required: false, defaultValue:true,
-					title: "Simulated sensors must be unique?"
-				input "globalIntrusionMsg", "bool", required: false, defaultValue: false,
-					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, suggest this be set on."
+				input "globalSimUnique", "bool", required: true, defaultValue:false,
+					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
+				input "globalIntrusionMsg", "bool", required: true, defaultValue: true,
+					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
 				}	
 			}	
 		section
@@ -116,10 +118,12 @@ def aboutPage()
 			{
 			paragraph "This smartapp simulates the Entry and Exit Delay parameters currently missing in SmartHome, "+
 			"giving you some time on entry to disarm the system using any method you choose prior to triggering an intrusion alert, "+
-			"and does not trigger an intrusion when a monitored contact sensor opens during the exit delay time."+
-			" It also replaces the 'Open contact when system is armed' monitor for the monitored contact, lost when removing the contact sensor from SmartHome.\n\n"+
- 			"***Please Note***: SmartHome is fully armed during operation of this SmartApp. Tripping a non-simulated sensor"+ 
- 			" immediately triggers an intrusion alert."
+			"and does not trigger an intrusion when a monitored contact sensor opens during the exit delay time. ***"+
+			"The delay operates only on monitored sensors, not the entire SmartHome application.***\n\n"+
+			"It also replaces the 'Open contact when system is armed' message, lost when removing the contact sensor from SmartHome.\n\n"+
+ 			"***Please Note***: SmartHome is fully armed during operation of this SmartApp. Tripping a 'non-delayed sensor'"+ 
+ 			" immediately triggers a SmartHome intrusion alert. This means a motion sensor that 'sees' a door"+
+ 			" with a delayed sensor, or 'sees' a disarming device such as a keypad, will trigger an intrusion alert while you are disarming the system. The motion sensor, or disarming device must be relocated to successfully use this app." 
 			
 			}
 		}
@@ -133,14 +137,15 @@ def installPage()
 			{
 			paragraph "Installation:\n"+
 			"Please complete the install by clicking 'Done' on the main page before creating your first profile.\n\n"+
-			"We suggest creating a unique simulated contact sensor for each real contct sensor, however "+
-			"should you prefer to use one simulated sensor for all your real sensors, expand the Global "+
+			"The name of the simulated sensor appears in SmartHome intrusion messages, but many users prefer not"+ 
+			" to clutter their 'My Home' device list with simulated sensors. The default is non-unique (one) simulated sensor, the choice is yours. "+
+			"Should you prefer unique simulated sensors, expand the Global "+
 			"Application Settings, then set:\n"+
-			" 1. Simulated sensors must be unique? Off/False\n"+
-			" 2. Send intrusion notification with name of triggering real sensor? On/True\n\n"+
+			" 1. Simulated sensors must be unique? On/True\n"+
+			" 2. Send intrusion notification with name of triggering real sensor? Off/False\n\n"+
 			"Prerequisites:\n"+
-			" 1. When using unique simulated contact sensors: For each contact sensor to be monitored, create a simulated contact sensor in the IDE.\n"+
-			"    When using non unique simulated contact sensors: Create at least one simulated contact sensor in the IDE.\n"+
+			" 1. When using non-unique simulated sensors: create one simulated contact sensor in the IDE.\n"+
+			"    When using unique simulated contact sensors: Create a simulated contact sensor for each monitored real sensor in the IDE.\n"+
 			"The name of the simulated sensor device is used by SmartHome on intrusion alert messages.\n\n"+
 			" 2. Remove the real contact sensor from SmartHome security monitoring. "+
 			"This app monitors this device and includes a replacement for the SmartHome 'system armed with open contact' monitor.\n\n"+
@@ -167,8 +172,8 @@ def delayPage()
 			"  1. set the entry delay time in seconds from 0 to 60. Default:30\n"+
 			" (zero is allowed enabling this app to be used only as an exit delay)\n"+
 			"  2. For away mode set the exit delay time in seconds from 0 to 60. Default:30\n"+
-			" (When using the lock-manager exit delay, or any other exit delay method, set exit delay to 0)\n"+
-			" (Exit delay is not active on Stay or Night mode)\n"+
+			" (When using the Keypad exit delay in E Thayer's lock-manager, or any other exit delay method, set exit delay to 0)\n"+
+			" (This app's exit delay is not active on Stay or Night mode)\n"+
 			"  3. (Optional) set keypads where to sound the entrydelay tones\n"+
 			"  4. (Optional) set sirens where beep should be issued\n"+
 			"  5. Tap 'Next' on top of page\n\n"+
