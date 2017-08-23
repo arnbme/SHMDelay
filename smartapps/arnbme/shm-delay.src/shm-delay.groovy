@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Aug 23, 2017 v1.0.7  Add police 911 and telephone numbers as links in notification messages
  *	Aug 20, 2017 v1.0.6a Change default global options: non-unique to false, create intrusion messages to true
  *					update documentation
  *	Aug 19, 2017 v1.0.6  Add global options allowing non unique simulated sensors, and alarm trigger messages
@@ -64,6 +65,10 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
+				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
+					title: "Add 3 digit emergency call number on intrusion message?")
+				input "globalPolice", "phone", required: false, 
+					title: "Include this phone number as a link on the intrusion message?"
 				}	
 			}
 		else	{
@@ -77,6 +82,10 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: true, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
+				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
+					title: "Add emergency call link on intrusion message?")
+				input "globalPolice", "phone", required: false, 
+					title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
 				}	
 			}	
 		section
@@ -143,6 +152,9 @@ def installPage()
 			"Application Settings, then set:\n"+
 			" 1. Simulated sensors must be unique? On/True\n"+
 			" 2. Send intrusion notification with name of triggering real sensor? Off/False\n\n"+
+			" 3. Select a 3 digit emergency number for inclusion on intrusion message (Optional)\n\n"+			
+			" 4. Add emergency phone number for inclusion on intrusion message (Optional)\n"+
+			"  Enter telephone number. Separate multiple numbers with a semicolon(;)\n\n"+
 			"Prerequisites:\n"+
 			" 1. When using non-unique simulated sensors: create one simulated contact sensor in the IDE.\n"+
 			"    When using unique simulated contact sensors: Create a simulated contact sensor for each monitored real sensor in the IDE.\n"+

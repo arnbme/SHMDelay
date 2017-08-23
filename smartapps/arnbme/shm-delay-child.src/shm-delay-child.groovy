@@ -18,6 +18,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 23, 2017 v1.0.8  Add test device.typeName for Simulated, police numbers into intrusion message
+ *					use standard routine for messages
+ * 	Aug 21, 2017 v1.0.7c Add logic to prevent installation this child module pageZero and PageZeroVerify
  * 	Aug 20, 2017 v1.0.7b When globalIntrusionMsg is true suppress non unique sensor notice messages
  * 	Aug 19, 2017 v1.0.7a A community created DTH did not set a manufacturer or model
  *					causing the device reject as a real device. Add test for battery.
@@ -43,18 +46,44 @@ definition(
     author: "Arn Burkhoff",
     description: "Simulate missing SmartHome entry and exit delay parameters, Child module",
     category: "My Apps",
-    parent: "arnbme:SHM Delay",
+//    parent: "arnbme:SHM Delaytst",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
     iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
 
 preferences {
-    page(name: "pageOne", nextPage: "pageOneVerify")
-    page(name: "pageOneVerify")
-    page(name: "pageTwo", nextPage: "pageTwoVerify")
-    page(name: "pageTwoVerify")
-    page(name: "pageThree", nextPage: "pageThreeVerify")
-}
+	page(name: "pageZeroVerify")
+	page(name: "pageZero", nextPage: "pageZeroVerify")
+	page(name: "pageOne", nextPage: "pageOneVerify")
+	page(name: "pageOneVerify")
+	page(name: "pageTwo", nextPage: "pageTwoVerify")
+	page(name: "pageTwoVerify")
+	page(name: "pageThree", nextPage: "pageThreeVerify")
+	}
+
+
+def pageZeroVerify()
+	{
+	if (parent && parent.getInstallationState()=='COMPLETE')
+		{
+		pageOne()
+		}
+	else
+		{
+		pageZero()
+		}
+	}	
+
+def pageZero()
+	{
+	dynamicPage(name: "pageZero", title: "This App cannot be installed", uninstall: true, install:false)
+		{
+		section
+			{
+			paragraph "This SmartApp, SHMDelay Child, cannot be installed. Please install and use SHM Delay."
+			}
+		}
+	}	
 
 
 def pageOne(error_data)
@@ -104,8 +133,9 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	def pageTwoWarning
 	if (thecontact)
 		{
-		if (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
-		    thecontact.currentState("battery") == null)
+		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
+		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
+		    thecontact.currentState("battery") == null))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -120,8 +150,9 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 
 	if (thesimcontact)
 		{
-		if (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
-		    thesimcontact.currentState("battery") == null)
+		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
+		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
+		    thesimcontact.currentState("battery") == null))
 			{
 			if (!issimcontactUnique())
 				{
@@ -367,6 +398,28 @@ def alarmStatusHandler(evt)
 		}
 	}
 	
+// log, send notification, SMS message	
+def doNotifications(message)
+	{
+	if (theLog)
+		{
+		sendNotificationEvent(message)
+		}
+	if (thesendPush)
+		{
+		sendPushMessage(message)
+		}
+	if (phone)
+		{
+		def phones = phone.split(";")
+		log.debug "$phones"
+		for (def i = 0; i < phones.size(); i++)
+			{
+			sendSmsMessage(phones[i], message)
+			}
+		}
+	}	
+
 
 /******** SmartHome Entry Delay Logic ********/
 
@@ -435,25 +488,34 @@ def soundalarm(data)
 //			log.debug "sending global intrusion message "
 //			get names of open contacts for message
 			def door_names = thecontact.displayName	//name of each switch in a list(array)
-			def message = "${door_names} intrusion detected (SHM Delay App)"
-	
-	//		log, send notification, SMS message	
-			if (theLog)
+			def message = "${door_names} intrusion"
+			if (parent?.global911 > ""  || parent?.globalPolice)
 				{
-				sendNotificationEvent(message)
-				}
-			if (thesendPush)
-				{
-				sendPushMessage(message)
-				}
-			if (phone)
-				{
-				def phones = phone.split(";")
-				for (def i = 0; i < phones.size(); i++)
+				def msg_emergency
+				if (parent?.global911 > "")
 					{
-					sendSmsMessage(phones[i], message)
+					msg_emergency= ", call Police at ${parent?.global911}"
+// shows as text 			msg_emergency= "<a href=\"tel://${parent?.global911} \">${parent?.global911}</a>"
 					}
+				if (parent?.globalPolice)
+					{
+					if (msg_emergency==null)
+						{
+						msg_emergency= ", call Police at ${parent?.globalPolice}"
+						}
+					else
+						{
+						msg_emergency+= " or ${parent?.globalPolice}"
+						}
+					}
+					
+				message+=msg_emergency
 				}
+			else
+				{
+				message+=" detected (SHM Delay App)"
+				}
+			doNotifications(message)	
 			}	
 		thesimcontact.close([delay: 4000])
 		}
@@ -549,23 +611,7 @@ def checkStatus()
 		def message = "${door_names} is open, system armed"
 		if (state.cycles<1)
 			message+=" (Final Warning)"
-//		log, send notification, SMS message	
-		if (theLog)
-			{
-			sendNotificationEvent(message)
-			}
-		if (thesendPush)
-			{
-			sendPushMessage(message)
-			}
-		if (phone)
-			{
-			def phones = phone.split(";")
-			for (def i = 0; i < phones.size(); i++)
-				{
-				sendSmsMessage(phones[i], message)
-				}
-			}
+		doNotifications(message)
 		if (themonitordelay>0 && state.cycles>0)
 			{
 			log.debug ("issued next checkStatus cycle $themonitordelay ${60*themonitordelay} seconds")
