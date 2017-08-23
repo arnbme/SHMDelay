@@ -46,7 +46,7 @@ definition(
     author: "Arn Burkhoff",
     description: "Simulate missing SmartHome entry and exit delay parameters, Child module",
     category: "My Apps",
-//    parent: "arnbme:SHM Delaytst",
+    parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
     iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
