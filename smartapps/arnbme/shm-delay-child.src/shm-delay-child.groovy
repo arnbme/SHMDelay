@@ -18,6 +18,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 28, 2017 v1.0.9a Allow Konnect simulated sensors as only real devices
  * 	Aug 23, 2017 v1.0.8  Add test device.typeName for Simulated, police numbers into intrusion message
  *					use standard routine for messages
  * 	Aug 21, 2017 v1.0.7c Add logic to prevent installation this child module pageZero and PageZeroVerify
@@ -135,7 +136,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
-		    thecontact.currentState("battery") == null))
+		    thecontact.currentState("battery") == null && !thecontact.typeName.matches("(.*)(?i)Konnect(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -152,7 +153,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
-		    thesimcontact.currentState("battery") == null))
+		    thecontact.currentState("battery") == null && !thesimcontact.typeName.matches("(.*)(?i)Konnect(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
