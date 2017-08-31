@@ -18,6 +18,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Aug 31, 2017 v1.1.0e Allow Honeywell simulated sensors as only real devices
  * 	Aug 28, 2017 v1.1.0a add State of 'batteryStatus' when testing for real or simulated device
  * 	Aug 28, 2017 v1.0.9a Allow Konnect simulated sensors as only real devices
  * 	Aug 23, 2017 v1.0.8  Add test device.typeName for Simulated, police numbers into intrusion message
@@ -138,7 +139,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)Konnect(.*)")))
+		    !thecontact.typeName.matches("(.*)(?i)Konnect|Honeywell(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -156,7 +157,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)Konnect(.*)")))
+		    !thesimcontact.typeName.matches("(.*)(?i)Konnect|Honeywell(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
