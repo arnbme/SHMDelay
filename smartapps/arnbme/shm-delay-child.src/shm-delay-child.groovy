@@ -18,9 +18,22 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- * 	Aug 31, 2017 v1.1.0e Allow Honeywell simulated sensors as only real devices
- * 	Aug 28, 2017 v1.1.0a add State of 'batteryStatus' when testing for real or simulated device
+ * 	Sep 02, 2017 v1.2.0  Repackage ModeFix into child module, skip running fix when bad 'night mode' is found
+ * 	Aug 31, 2017 v1.1.0e Add Honeywell to valid Simulated contacts
+ * 	Aug 31, 2017 v1.1.0f Simulate beep with on/off if no beep command, fails with GoControl Siren
+ * 	Aug 30, 2017 v1.1.0e keypad acts up when commands come in to fast. always use a one second delay on setarmed night
+ * 	Aug 30, 2017 v1.1.0e issue setArmedNight only when using upgraded Keypad
+ * 	Aug 30, 2017 v1.1.0d verify keypad can issue setEntryDelay, or issue error msg
+ * 	Aug 30, 2017 v1.1.0c verify siren has a beep command, or issue error msg
+ * 	Aug 30, 2017 v1.1.0b change passing of error data back to pages to a state field
+ * 	Aug 29, 2017 v1.1.0a add State of 'batteryStatus' when testing for real or simulated device
+ * 	Aug 28, 2017 v1.1.0  when globaFixMode is on, eliminate 2 second delay issuing keypad setArmedNight
+ * 	Aug 25, 2017 v1.1.0  Setting alarmstatus in Smart Home Monitor does not set Mode
+ *					disabled testing mode with TrueNight and stay with 2 armed modes vs 3 available on keypad
+ * 	Aug 24, 2017 v1.1.0  SmartHome sends stay mode when going into night mode lighting the stay mode on
+ *  					the Xfinity keypad. Force keypad to show night mode and have no entry delay 
  * 	Aug 28, 2017 v1.0.9a Allow Konnect simulated sensors as only real devices
+ * 	Aug 24, 2017 v1.0.9  insure keypads cannot be used for any type of contact sensor
  * 	Aug 23, 2017 v1.0.8  Add test device.typeName for Simulated, police numbers into intrusion message
  *					use standard routine for messages
  * 	Aug 21, 2017 v1.0.7c Add logic to prevent installation this child module pageZero and PageZeroVerify
@@ -89,15 +102,16 @@ def pageZero()
 	}	
 
 
-def pageOne(error_data)
+def pageOne()
 	{
 	dynamicPage(name: "pageOne", title: "The Contact Sensors", uninstall: true)
 		{
 		section
 			{
-			if (error_data instanceof String )
+			if (state.error_data)
 				{
-				paragraph error_data
+				paragraph "${state.error_data}"
+				state.remove("error_data")
 				}
 			input "thecontact", "capability.contactSensor", required: true, 
 				title: "Real Contact Sensor (Remove from SmartHome Monitoring)", submitOnChange: true
@@ -136,10 +150,15 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	def pageTwoWarning
 	if (thecontact)
 		{
+		if (thecontact.typeName.matches("(.*)(?i)keypad(.*)"))
+			{
+			error_data="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'"
+			}
+		else
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)Konnect|Honeywell(.*)")))
+		    !thecontact.typeName.matches("(.*)(?i)Konnect|honeywell(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -154,10 +173,22 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 
 	if (thesimcontact)
 		{
+		if (thesimcontact.typeName.matches("(.*)(?i)keypad(.*)"))
+			{
+			if (error_data!=null)
+				{
+				error_data+="\n\nDevice: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'"
+				}
+			else
+				{
+				error_data="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'"
+				}
+			}
+		else
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)Konnect|Honeywell(.*)")))
+		    !thesimcontact.typeName.matches("(.*)(?i)Konnect|honeywell(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
@@ -201,16 +232,14 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		}	
 	if (error_data!=null)
 		{
-		pageOne(error_data)
+		state.error_data=error_data
+		pageOne()
 		}
 	else
-//	if (pageTwoWarning == null)	
-//		{
-//		pageTwo()
-//		}
-//	else
 		{
-		pageTwo(pageTwoWarning)
+		if (pageTwoWarning!=null)			
+			{state.error_data=error_data}
+		pageTwo()
 		}
 	}	
 
@@ -227,8 +256,13 @@ def iscontactUnique()
 //	log.debug current app Id "${myState.getId()}"
 	children.each
 		{ child ->
-//		log.debug "child app id: ${child.getId()}"	
+
+//		log.debug "child app id: ${child.getId()} ${child.getLabel()}"	
 //		log.debug "child contact Id: ${child.thecontact.getId()}"	
+		def childLabel = child.getLabel()
+		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
+			{}
+		else
 		if (child.thecontact.getId() == thecontact.getId() &&
 		    child.getId() != app.getId())
 			{
@@ -244,6 +278,10 @@ def issimcontactUnique()
 	def children = parent?.getChildApps()
 	children.each
 		{ child ->
+		def childLabel = child.getLabel()
+		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
+			{}
+		else
 		if (child.thesimcontact.getId() == thesimcontact.getId() &&
 		    child.getId() != app.getId())
 			{
@@ -270,15 +308,16 @@ def isUnique(contact)
 	}
 */	
 
-def pageTwo(error_data)
+def pageTwo()
 	{
 	dynamicPage(name: "pageTwo", title: "Entry and Exit Data", uninstall: true)
 		{
 		section("") 
 			{
-			if (error_data instanceof String )
+			if (state.error_data)
 				{
-				paragraph "${error_data}"
+				paragraph "${state.error_data}"
+				state.remove("error_data")
 				}
 			input "theentrydelay", "number", required: true, range: "0..60", defaultValue: 30,
 				title: "Alarm entry delay time in seconds from 0 to 60"
@@ -295,9 +334,36 @@ def pageTwo(error_data)
 def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 	{
 	def error_data
+	if (thekeypad)
+		{
+		thekeypad.each		//fails when not defined as multiple contacts
+			{
+			if (!it.hasCommand("setEntryDelay"))
+				{
+				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads."
+				}
+			}
+		}	
+	if (thesiren)
+		{
+		thesiren.each		//fails when not defined as multiple contacts
+			{
+			if (it.hasCommand("beep") || (it.hasCommand("on") && it.hasCommand("off")))
+				{}
+			else	
+			if (!error_data!=null)
+				{
+				error_data+="\n\nSiren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens."
+				}
+			else	
+				{
+				error_data="Siren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens."
+				}
+			}	
+		}	
 	if (theentrydelay < 1 && theexitdelay < 1)
 		{
-		if (error_data!=null)
+		if (!error_data!=null)
 			{
 			error_data+="\n\nIllogical condition: entry and exit delays are both zero"
 			}
@@ -308,7 +374,8 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 		}	
 	if (error_data!=null)
 		{
-		pageTwo(error_data)
+		state.error_data=error_data
+		pageTwo()
 		}
 	else 
 		{
@@ -323,15 +390,11 @@ def pageThree(error_data)
 		{
 		section("")
 			{
-			if (error_data instanceof String )
-				{
-				paragraph "${error_data}"
-				}
 			input "maxcycles", "number", required: false, range: "1..99", defaultValue: 2,
 				title: "Maximum number of open door warning messages"
 			input "themonitordelay", "number", required: false, range: "1..15", defaultValue: 1,
 				title: "Number of minutes between open door messages from 1 to 15"  	
-			paragraph "Folowing settings are used with Open Door and optional Intrusion messages"
+			paragraph "Following settings are used with Open Door and optional Intrusion messages"
 			input "theLog", "bool", required: false, defaultValue:true,
 				title: "Log to Notifications?"
 			input "thesendPush", "bool", required: false, defaultValue:true,
@@ -353,7 +416,8 @@ def pageThreeVerify() 				//edit page three info
 		}
 	if (error_data!=null)
 		{
-		pageThree(error_data)
+		state.error_data=error_data
+		pageThree()
 		}
 //	else 
 //		{
@@ -375,17 +439,38 @@ def updated() {
 
 def initialize() 
 	{
-	subscribe(location, "alarmSystemStatus", alarmStatusHandler)
+	subscribe(location, "alarmSystemStatus", childalarmStatusHandler)
 	subscribe(thecontact, "contact.open", doorOpensHandler)
 	subscribe(thecontact, "contact.closed", contactClosedHandler)	//open door monitor
 	}	
 
 /******** Common Routine monitors the alarm state for changes ********/
 
-def alarmStatusHandler(evt)
+def childalarmStatusHandler(evt)
 	{
-	log.debug("alarmStatusHandler caught alarm status change: ${evt.value}")
-	if (evt.value=="off")
+	def theAlarm = evt.value
+	if (theAlarm == "night")	//bad AlarmState processed once by Modefix thats enough
+		return false		// and we get it almost immediately
+	def theMode = location.currentMode	
+	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
+	
+//	Optionally fix the mode to match the Alarm State. When user sets alarm from dashboard
+//	the Mode is not set, resulting in Smarthings having Schizophrenia or cognitive dissonance. 
+	if (parent?.globalFixMode)
+		{
+		def modefix=parent.findChildAppByName("SHM Delay ModeFix")
+		log.debug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
+		if (modefix?.getInstallationState() == 'COMPLETE') 
+			{
+//			log.debug "going to modefix alarmstatushandler mode: ${theMode}"
+			theMode=modefix.alarmStatusHandler(evt)
+			log.debug "returned from modefix alarmstatushandler mode: ${theMode}"
+			if (!theMode)
+				{theMode = location.currentMode}	
+			}
+		}
+		
+	if (theAlarm=="off")
 		{
 		unschedule(soundalarm)		//kill any lingering future tasks for delay or monitor
 		killit()				//kill any lingering future tasks for delay or monitor
@@ -400,8 +485,14 @@ def alarmStatusHandler(evt)
 			{
 			new_monitor()
 			}
+					
+		if (parent?.globalKeypad && theAlarm=="stay" && parent?.globalTrueNight && theMode=="Night" && thekeypad)
+			{
+			log.debug "armednight issued"
+			thekeypad.setArmedNight([delay: 2000])
+			}
 		}
-	}
+	}	
 	
 // log, send notification, SMS message	
 def doNotifications(message)
@@ -417,14 +508,13 @@ def doNotifications(message)
 	if (phone)
 		{
 		def phones = phone.split(";")
-		log.debug "$phones"
+//		log.debug "$phones"
 		for (def i = 0; i < phones.size(); i++)
 			{
 			sendSmsMessage(phones[i], message)
 			}
 		}
 	}	
-
 
 /******** SmartHome Entry Delay Logic ********/
 
@@ -433,7 +523,8 @@ def doorOpensHandler(evt)
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
 	def lastupdt = alarm?.date.time
-	log.debug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt"
+	def theMode = location.currentMode
+	log.debug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt Mode: $theMode Truenight:${parent.globalTrueNight} "
 
 //	get current time and alarm time in seconds
 	def currT = now()
@@ -449,6 +540,13 @@ def doorOpensHandler(evt)
 		new_monitor()
 		}
 	else	
+	if (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")
+		{
+		def now = new Date()
+		def runTime = new Date(now.getTime())
+		runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt]]) //cant set data except in run statments? create list?
+		}
+	else
 	if (alarmstatus == "stay" || alarmstatus == "away")
 		{
 //		When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
@@ -458,11 +556,23 @@ def doorOpensHandler(evt)
 			}
 
 //		when siren is defined: wait 2 seconds allowing people to get through door, then blast a siren warning beep
+//		Aug 31, 2017 add simulated beep when no beep command
 		if (settings.thesiren)
 			{
-			thesiren.beep([delay: 2000])
-			}
-
+			thesiren.each		//fails when not defined as multiple contacts
+				{
+				if (it.hasCommand("beep"))
+					{
+					it.beep([delay: 2000])
+					}
+				else
+					{
+					it.on([delay: 2000])	
+					it.off([delay: 2250])
+					}
+				}
+			}	
+			
 //		Trigger Alarm in theentrydelay seconds by opening the virtual sensor.
 //		Do not delay alarm when additional triggers occur by using overwrite: false
 		def now = new Date()

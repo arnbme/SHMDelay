@@ -14,6 +14,11 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 02, 2017 v1.2.0  repackage Modefix logic back into child ModeFix module where it belongs
+ * 	Aug 30, 2017 v1.1.1  add global for using the upgraded Keypad module.
+ * 	Aug 27, 2017 v1.1.0  Add child module SHM Delay ModeFix for Mode fixup profiles and adjust menus to reflect status
+ * 	Aug 25, 2017 v1.1.0  SmartHome send stay mode when going into night mode. Force keypad to show
+ *					night mode and have no entry delay. Add globalTrueNight for this option and globalFixMode 
  *	Aug 23, 2017 v1.0.7  Add police 911 and telephone numbers as links in notification messages
  *	Aug 20, 2017 v1.0.6a Change default global options: non-unique to false, create intrusion messages to true
  *					update documentation
@@ -32,7 +37,7 @@ definition(
     name: "SHM Delay",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "SmartApp simulating missing entry and exit delay option in SmartHome",
+    description: "(V1.2.0)SmartApp simulating missing entry and exit delay option in SmartHome",
     category: "My Apps",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
@@ -51,10 +56,22 @@ def main()
 	{
 	dynamicPage(name: "main", title: "Delay Simulator for SmartHome", install: true, uninstall: true)
 		{
-//		if (childApps?.size())
-//		log.debug "${app.getInstallationState()}"
 		if (app.getInstallationState() == 'COMPLETE')	//note documentation shows as lower case, but returns upper
 			{  
+			def modeFixChild="Create"
+			def children = getChildApps()
+			children.each
+				{ child ->
+				def childLabel = child.getLabel()
+				if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
+					{
+					modeFixChild="Update"
+					}
+				}
+			def modeActive=" Inactive"
+			if (globalFixMode)
+				{modeActive=" Active"}
+			def fixtitle = modeFixChild + modeActive + " Mode Fix Settings"
 			section 
 				{
 				app(name: "EntryDelayProfile", appName: "SHM Delay Child", namespace: "arnbme", title: "Create A New Delay Profile", multiple: true)
@@ -65,10 +82,28 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
+				input "globalTrueNight", "bool", required: false, defaultValue: true,
+					title: "In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: On/True"
+				input "globalFixMode", "bool", required: false, defaultValue: false,
+					title: "When AlarmState changes, fix Mode when invalid. Default: Off/False"
+				input "globalKeypad", "bool", required: false, defaultValue: false,
+					title: "The upgraded Keypad module is installed Default: Off/False"
 				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
 					title: "Add 3 digit emergency call number on intrusion message?")
 				input "globalPolice", "phone", required: false, 
-					title: "Include this phone number as a link on the intrusion message?"
+					title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
+				}	
+			if (globalFixMode && modeFixChild == "Create")
+				{
+				section (hideable: true, hidden: false, "Mode Fix Settings are required"){
+				app(name: "ModeFixProfile", appName: "SHM Delay ModeFix", namespace: "arnbme", title: "${fixtitle}", multiple: false)
+					}
+				}	
+			else
+				{
+				section (hideable: true, hidden: true, "Mode Fix Settings Are$modeActive"){
+				app(name: "ModeFixProfile", appName: "SHM Delay ModeFixx", namespace: "arnbme", title: "${fixtitle}", multiple: false)
+					}
 				}	
 			}
 		else	{
@@ -82,6 +117,12 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: true, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
+				input "globalTrueNight", "bool", required: true, defaultValue: false,
+					title: "In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: Off/False"
+				input "globalFixMode", "bool", required: true, defaultValue: false,
+					title: "When AlarmState changes, fix Mode when invalid. Default: Off/False"
+				input "globalKeypad", "bool", required: true, defaultValue: false,
+					title: "The upgraded Keypad module is installed Default: Off/False"
 				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
 					title: "Add emergency call link on intrusion message?")
 				input "globalPolice", "phone", required: false, 
@@ -150,10 +191,14 @@ def installPage()
 			" to clutter their 'My Home' device list with simulated sensors. The default is non-unique (one) simulated sensor, the choice is yours. "+
 			"Should you prefer unique simulated sensors, expand the Global "+
 			"Application Settings, then set:\n"+
-			" 1. Simulated sensors must be unique? On/True\n"+
-			" 2. Send intrusion notification with name of triggering real sensor? Off/False\n\n"+
-			" 3. Select a 3 digit emergency number for inclusion on intrusion message (Optional)\n\n"+			
-			" 4. Add emergency phone number for inclusion on intrusion message (Optional)\n"+
+			" 1. Simulated sensors must be unique? Default Off/False\n\n"+
+			" 2. Send intrusion notification with name of triggering real sensor?  Default On/True\n\n"+
+			" 3. Set TrueNight flag on to trigger instant intrusion in Stay alarm state. Default: Off/False\n\n"+
+			" 4. Set mode flag if you want Mode to be synced with AlarmState Default: Off/False\n"+
+			" When set on: install app then create the ModeFix profile\n\n"+
+			" 5. When upgraded Keypad module is installed this must be set on. Default: Off/False\n\n"+
+			" 6. Select a 3 digit emergency number for inclusion on intrusion message (Optional)\n\n"+			
+			" 7. Add emergency phone number for inclusion on intrusion message (Optional)\n"+
 			"  Enter telephone number. Separate multiple numbers with a semicolon(;)\n\n"+
 			"Prerequisites:\n"+
 			" 1. When using non-unique simulated sensors: create one simulated contact sensor in the IDE.\n"+
@@ -188,6 +233,7 @@ def delayPage()
 			" (This app's exit delay is not active on Stay or Night mode)\n"+
 			"  3. (Optional) set keypads where to sound the entrydelay tones\n"+
 			"  4. (Optional) set sirens where beep should be issued\n"+
+			"  When a siren does not support the beep command, the app issues the On command, followed in 250 millseconds by an Off command.\n"+ 
 			"  5. Tap 'Next' on top of page\n\n"+
 			"The 'Open Door Monitor and Notifications' page displays\n"+
 			"  Open Door Message Settings\n"+ 
@@ -244,10 +290,9 @@ def updated() {
 }
 
 def initialize() {
-    // nothing needed here, since the child apps will handle preferences/subscriptions
-    // this just logs some messages for demo/information purposes
-    log.debug "there are ${childApps.size()} child smartapps"
-    childApps.each {child ->
-        log.debug "child app: ${child.label}"
-    }
-} 
+//	List the childapps just incase it may be needed
+	log.debug "there are ${childApps.size()} child smartapps"
+	childApps.each {child ->
+	  log.debug "child app: ${child.label}"
+	}
+}	
