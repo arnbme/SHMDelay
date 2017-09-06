@@ -14,6 +14,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 02, 2017 v1.2.0a fix sorry there was an unexpected error due to having app name as modefixx from testing on
+ *					one of the app connections
  * 	Sep 02, 2017 v1.2.0  repackage Modefix logic back into child ModeFix module where it belongs
  * 	Aug 30, 2017 v1.1.1  add global for using the upgraded Keypad module.
  * 	Aug 27, 2017 v1.1.0  Add child module SHM Delay ModeFix for Mode fixup profiles and adjust menus to reflect status
@@ -102,7 +104,7 @@ def main()
 			else
 				{
 				section (hideable: true, hidden: true, "Mode Fix Settings Are$modeActive"){
-				app(name: "ModeFixProfile", appName: "SHM Delay ModeFixx", namespace: "arnbme", title: "${fixtitle}", multiple: false)
+				app(name: "ModeFixProfile", appName: "SHM Delay ModeFix", namespace: "arnbme", title: "${fixtitle}", multiple: false)
 					}
 				}	
 			}

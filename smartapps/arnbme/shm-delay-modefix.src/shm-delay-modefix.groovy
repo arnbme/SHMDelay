@@ -13,6 +13,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 05, 2017    v0.1.1  minor code change to allow this module to run stand alone
  * 	Sep 02, 2017    v0.1.0  add code to fix bad alarmstate set by unmodified Keypad module
  * 	Sep 02, 2017    v0.1.0  Repackage logic that was in parent into this module for better reliability
  *					and control
@@ -233,7 +234,7 @@ def alarmStatusHandler(evt)
 		log.warn "Change the Lock Manager Keypad module to version in github ARNBME lock-master SHMDelay ModeFix"
 		return "Night"
 		}
-	if (!parent?.globalFixMode)
+	if (parent && !parent.globalFixMode)
 		{return false}
 	def theMode = location.currentMode
 	def oldMode = theMode
