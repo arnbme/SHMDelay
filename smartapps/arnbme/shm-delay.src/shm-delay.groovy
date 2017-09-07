@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 06, 2017 v1.2.0b add custom app remove button and text
  * 	Sep 02, 2017 v1.2.0a fix sorry there was an unexpected error due to having app name as modefixx from testing on
  *					one of the app connections
  * 	Sep 02, 2017 v1.2.0  repackage Modefix logic back into child ModeFix module where it belongs
@@ -159,6 +160,7 @@ def main()
 			required: false,
 			page: "createSimPage")
 			}
+		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
 	}
 
