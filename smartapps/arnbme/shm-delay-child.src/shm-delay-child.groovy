@@ -18,6 +18,13 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 17, 2017 v1.2.1  In true night and stay modes alarm not sounding.
+ *					soundalarm was not firing, perhaps encountered a RunOnce timing issue with server
+ *						created then passed a map to soundalarm rather than issuing a RunOnce
+ *						should greatly improve reliability of the instant trigger
+ *					manually setting virtual in phone app did not trigger alarm (WTF)
+ *						had to resave the SmartHome Security parameters to get it to fire
+ *	
  * 	Sep 02, 2017 v1.2.0  Repackage ModeFix into child module, skip running fix when bad 'night mode' is found
  * 	Aug 31, 2017 v1.1.0e Add Honeywell to valid Simulated contacts
  * 	Aug 31, 2017 v1.1.0f Simulate beep with on/off if no beep command, fails with GoControl Siren
@@ -542,9 +549,9 @@ def doorOpensHandler(evt)
 	else	
 	if (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")
 		{
-		def now = new Date()
-		def runTime = new Date(now.getTime())
-		runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt]]) //cant set data except in run statments? create list?
+		def aMap = [data: [lastupdt: lastupdt]]
+		log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"
+		soundalarm(aMap.data)
 		}
 	else
 	if (alarmstatus == "stay" || alarmstatus == "away")
@@ -587,14 +594,14 @@ def soundalarm(data)
 	def alarm2 = location.currentState("alarmSystemStatus")
 	def alarmstatus2 = alarm2.value
 	def lastupdt = alarm2.date.time
-	log.debug "soundalarm called: $alarmstatus2 $data.lastupdt $lastupdt"
+	log.debug "soundalarm called: $alarmstatus2 $data ${data.lastupdt} $lastupdt"
 	if (alarmstatus2=="off")		//This compare is optional, but just incase 
 		{}
 	else
 	if (data.lastupdt==lastupdt)		//if this does not match, the system was set off then rearmed in delay period
 		{
-		log.debug "alarm triggered"
 		thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
+		log.debug "alarm triggered"	
 		thesimcontact.open()
 
 //		Aug 19, 2017 issue optional intrusion notificaion messages
