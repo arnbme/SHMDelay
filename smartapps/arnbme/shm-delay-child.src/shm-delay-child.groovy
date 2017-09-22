@@ -165,7 +165,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)Konnect|honeywell(.*)")))
+		    !thecontact.typeName.matches("(.*)(?i)(Konnect|honeywell)(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -195,7 +195,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)Konnect|honeywell(.*)")))
+		    !thesimcontact.typeName.matches("(.*)(?i)(Konnect|honeywell)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
