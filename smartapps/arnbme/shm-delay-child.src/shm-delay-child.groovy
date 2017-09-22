@@ -18,6 +18,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Sep 22, 2017 v1.2.1b Add Z-Wave in type as valid real device. User could not select as real 
+ *	Sep 22, 2017 v1.2.1a Konnect not being allowed as real device, add parens around Konnect|honeywell 
  * 	Sep 17, 2017 v1.2.1  In true night and stay modes alarm not sounding.
  *					soundalarm was not firing, perhaps encountered a RunOnce timing issue with server
  *						created then passed a map to soundalarm rather than issuing a RunOnce
@@ -165,7 +167,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)(Konnect|honeywell)(.*)")))
+		    !thecontact.typeName.matches("(.*)(?i)(Konnect|honeywell|Z[-]Wave)(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -195,7 +197,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)(Konnect|honeywell)(.*)")))
+		    !thesimcontact.typeName.matches("(.*)(?i)(Konnect|honeywell|Z[-]Wave)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
