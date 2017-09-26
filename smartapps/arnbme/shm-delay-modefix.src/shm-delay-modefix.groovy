@@ -13,6 +13,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Sep 23, 2017    v0.1.2  Ignore alarm changes caused by True Entry Delay in SHM Delay Child
  * 	Sep 05, 2017    v0.1.1  minor code change to allow this module to run stand alone
  * 	Sep 02, 2017    v0.1.0  add code to fix bad alarmstate set by unmodified Keypad module
  * 	Sep 02, 2017    v0.1.0  Repackage logic that was in parent into this module for better reliability
@@ -238,6 +239,14 @@ def alarmStatusHandler(evt)
 		{return false}
 	def theMode = location.currentMode
 	def oldMode = theMode
+	def delaydata=evt?.data
+	if (delaydata==null)
+		{}
+	else	
+	if (delaydata.startsWith("shmtruedelay"))	//ignore SHM Delay Child "true entry delay" alarm state changes
+		{
+		log.debug "Modefix ignoring True Entry Delay event, alarm state ${theAlarm}"
+		return false}
 	log.debug "ModeFix alarmStatusHandler entered alarm status change: ${theAlarm} Mode: ${theMode} "
 //	Fix the mode to match the Alarm State. When user sets alarm from dashboard
 //	the Mode is not set, resulting in Smarthings having Schizophrenia or cognitive dissonance. 

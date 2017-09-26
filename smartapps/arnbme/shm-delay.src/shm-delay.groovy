@@ -14,6 +14,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Sep 23, 2017 v1.4.0  Document True Entry Delay and optional followed motion sensor in Delay Profile 
+ *	Sep 23, 2017 v1.3.0  Add Global setting for option True Entry Delay, default off/false 
  * 	Sep 06, 2017 v1.2.0b add custom app remove button and text
  * 	Sep 02, 2017 v1.2.0a fix sorry there was an unexpected error due to having app name as modefixx from testing on
  *					one of the app connections
@@ -85,10 +87,12 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
-				input "globalTrueNight", "bool", required: false, defaultValue: true,
-					title: "In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: On/True"
+				input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
+					title: "True Entry Delay: In AlarmState Away and Stay with an entry delay time, ignore triggers from all other sensors when Monitored Contact Sensor opens. Default: Off/False"
+				input "globalTrueNight", "bool", required: true, defaultValue: true,
+					title: "True Night Mode: In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: On/True"
 				input "globalFixMode", "bool", required: false, defaultValue: false,
-					title: "When AlarmState changes, fix Mode when invalid. Default: Off/False"
+					title: "Mode Fix: When AlarmState changes, fix Mode when invalid. Default: Off/False"
 				input "globalKeypad", "bool", required: false, defaultValue: false,
 					title: "The upgraded Keypad module is installed Default: Off/False"
 				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
@@ -120,10 +124,12 @@ def main()
 					title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 				input "globalIntrusionMsg", "bool", required: true, defaultValue: true,
 					title: "Issue intrusion message with name of triggering real sensor? When simulated sensors are not unique, this should this be set On/True."
+				input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
+					title: "True Entry Delay: In AlarmState Away and Stay with an entry delay time, ignore triggers from all other sensors when Monitored Contact Sensor opens. Default: Off/False"
 				input "globalTrueNight", "bool", required: true, defaultValue: false,
-					title: "In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: Off/False"
+					title: "True Night Mode: In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: Off/False"
 				input "globalFixMode", "bool", required: true, defaultValue: false,
-					title: "When AlarmState changes, fix Mode when invalid. Default: Off/False"
+					title: "Mode Fix: When AlarmState changes, fix Mode when invalid. Default: Off/False"
 				input "globalKeypad", "bool", required: true, defaultValue: false,
 					title: "The upgraded Keypad module is installed Default: Off/False"
 				input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
@@ -197,12 +203,13 @@ def installPage()
 			"Application Settings, then set:\n"+
 			" 1. Simulated sensors must be unique? Default Off/False\n\n"+
 			" 2. Send intrusion notification with name of triggering real sensor?  Default On/True\n\n"+
-			" 3. Set TrueNight flag on to trigger instant intrusion in Stay alarm state. Default: Off/False\n\n"+
-			" 4. Set mode flag if you want Mode to be synced with AlarmState Default: Off/False\n"+
+			" 3. Set True EntryDelay: A last resort when intusions cannot be stopped by setting an optional followed motion sensor in the Delay Profile. Default: Off/False\n\n"+
+			" 4. Set TrueNight flag on to trigger instant intrusion in Stay alarm state. Default: Off/False\n\n"+
+			" 5. Set mode flag if you want Mode to be synced with AlarmState Default: Off/False\n"+
 			" When set on: install app then create the ModeFix profile\n\n"+
-			" 5. When upgraded Keypad module is installed this must be set on. Default: Off/False\n\n"+
-			" 6. Select a 3 digit emergency number for inclusion on intrusion message (Optional)\n\n"+			
-			" 7. Add emergency phone number for inclusion on intrusion message (Optional)\n"+
+			" 6. When upgraded Keypad module is installed this must be set on. Default: Off/False\n\n"+
+			" 7. Select a 3 digit emergency number for inclusion on intrusion message (Optional)\n\n"+			
+			" 8. Add emergency phone number for inclusion on intrusion message (Optional)\n"+
 			"  Enter telephone number. Separate multiple numbers with a semicolon(;)\n\n"+
 			"Prerequisites:\n"+
 			" 1. When using non-unique simulated sensors: create one simulated contact sensor in the IDE.\n"+
@@ -227,8 +234,10 @@ def delayPage()
 			"Start by tapping 'Create A New Delay Profile'\n"+
 			"  1. select a real contact sensor\n"+
 			"  2. select a simulated contact device\n"+
-			"  3. Profile name is internally set to Profile: (real contact sensor name) It may be modified\n"+
-			"  4. Tap 'Next' on top of page\n\n"+
+			"  3. (Optional) when a motion sensor triggers an intrusion during an entry delay: select motion sensor device, "+
+			"then remove it from SmartHome Armed (Away) Motion sensors\n"+
+			"  4. Profile name is internally set to Profile: (real contact sensor name) It may be modified\n"+
+			"  5. Tap 'Next' on top of page\n\n"+
 			"The 'Entry and Exit Data' page displays\n"+
 			"  1. set the entry delay time in seconds from 0 to 60. Default:30\n"+
 			" (zero is allowed enabling this app to be used only as an exit delay)\n"+

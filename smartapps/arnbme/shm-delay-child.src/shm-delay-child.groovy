@@ -18,6 +18,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Sep 26, 2017 v1.4.0  Add optional motion sensor to silence when monitored contact sensor opens in away mode 
+ *	Sep 22, 2017 v1.3.0  Add logic for True Entry Delay 
  *	Sep 22, 2017 v1.2.1c Modify allowing Connect and Konnect as "real" devices 
  *	Sep 22, 2017 v1.2.1b Add Z-Wave in type as valid real device. User could not select as real 
  *	Sep 22, 2017 v1.2.1a Konnect not being allowed as real device, add parens around Konnect|honeywell 
@@ -131,6 +133,11 @@ def pageOne()
 			input "thesimcontact", "capability.contactSensor", required: true,
 				title: "Simulated Contact Sensor (Must Monitor in SmartHome)"
 			}
+		section
+			{	
+			input "themotionsensor", "capability.motionSensor", required: false,
+				title: "(Optional!) Ignore this Motion Sensor when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
+			}
 		if (thecontact)
 			{
 			section([mobileOnly:true]) 
@@ -150,17 +157,19 @@ def pageOne()
 	}
 
 
-/*	Cant find a way to get the actual device type, so test manufacturer and model for null */
-/*    When a method is found test for word simulated	*/
-//				def str=error_data.toString()
-//				paragraph str
 def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	{
 	def error_data
 	def pageTwoWarning
 	if (thecontact)
 		{
-		if (thecontact.typeName.matches("(.*)(?i)keypad(.*)"))
+/*		def txt = "xfinity 3400 Keypad xyz"		//test code for failing match group test 
+		def m
+		if ((m = txt =~ /(.*)(?i)(keypad)(.*)/)) {
+		  log.debug "m $m"	
+		  def match = m.group(1)			//fails with error message here
+		  log.debug "MATCH=$match"}
+*/		if (thecontact.typeName.matches("(.*)(?i)(keypad)(.*)"))
 			{
 			error_data="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'"
 			}
@@ -452,6 +461,8 @@ def initialize()
 	subscribe(location, "alarmSystemStatus", childalarmStatusHandler)
 	subscribe(thecontact, "contact.open", doorOpensHandler)
 	subscribe(thecontact, "contact.closed", contactClosedHandler)	//open door monitor
+	if (themotionsensor){
+		subscribe(themotionsensor, "motion.active", motionActiveHandler)}
 	}	
 
 /******** Common Routine monitors the alarm state for changes ********/
@@ -459,8 +470,30 @@ def initialize()
 def childalarmStatusHandler(evt)
 	{
 	def theAlarm = evt.value
+	def delaydata=evt?.data
+//	log.debug "delaydata ${delaydata}"
+//	log.debug "alarm state changed stuff ${evt.value} ${evt?.description} ${evt?.name} ${evt.date.time} ${evt?.data} ${delaydata} "
+	if (delaydata=="shmtruedelay_rearm")	//True entry delay, rearming is ignored here
+		{
+//		log.debug "childalarmStatusHandler ignoring the rearm request"
+		return false
+		}
+	else
+	if (delaydata=="shmtruedelay_away")		//Process away mode with Entry true delay
+		{
+//		log.debug "childalarmStatusHandler prepare to rearm away"
+		prepare_to_soundalarm("away")
+		return false
+		}
+	else
+	if (delaydata=="shmtruedelay_stay")		//Process away mode with Entry true delay
+		{
+//		log.debug "childalarmStatusHandler prepare to rearm stay"
+		prepare_to_soundalarm("stay")
+		return false
+		}	
 	if (theAlarm == "night")	//bad AlarmState processed once by Modefix thats enough
-		return false		// and we get it almost immediately
+		{return false}		// and we get it almost immediately
 	def theMode = location.currentMode	
 	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
 	
@@ -528,11 +561,42 @@ def doNotifications(message)
 
 /******** SmartHome Entry Delay Logic ********/
 
-def doorOpensHandler(evt)
+def motionActiveHandler(evt)
 	{
+//	In Away mode, when associated contact sensor is closed and not in exitdelay time frame, trigger instant alarm
+//	add logic to determine when door was never closed to trigger alarm
+//		(curr_contact == "closed" && currSecs - alarmSecs >= theexitdelay) ||
+//		(curr_contact == "open" and contact open for more than 1 minute))
+//	get alarmstatus and time
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
 	def lastupdt = alarm?.date.time
+	def alarmSecs = Math.round( lastupdt / 1000)
+
+//	get current time and alarm time in seconds
+	def currT = now()
+	def currSecs = Math.round(currT / 1000)	//round back to seconds
+
+//	get status of associated contact sensor
+	def curr_contact = thecontact.currentContact
+//	lastactivity format is Tue Sep 26 15:45:42 UTC 2017	
+//	log.debug "contact Last Activity: ${thecontact.getLastActivity()} ${curr_contact}"
+//	check first if this is an exit delay in away mode, if yes monitor the door, else its an alarm
+	if (alarmstatus == "away" && curr_contact == "closed" && currSecs - alarmSecs >= theexitdelay)
+		{
+		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: themotionsensor.displayName]]
+		log.debug "Away Mode instant on for motion sensor ${aMap.data.lastupdt}"
+		soundalarm(aMap.data)
+		}
+	}	
+		
+def doorOpensHandler(evt)
+	{
+	def alarm = location.currentState("alarmSystemStatus")
+//	log.debug "door opens alarm stuff ${alarm?.description} ${alarm?.name}"
+	def alarmstatus = alarm?.value
+	def lastupdt = alarm?.date.time
+	
 	def theMode = location.currentMode
 	log.debug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt Mode: $theMode Truenight:${parent.globalTrueNight} "
 
@@ -552,61 +616,104 @@ def doorOpensHandler(evt)
 	else	
 	if (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")
 		{
-		def aMap = [data: [lastupdt: lastupdt]]
+		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
 		log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"
 		soundalarm(aMap.data)
 		}
 	else
 	if (alarmstatus == "stay" || alarmstatus == "away")
 		{
-//		When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
-		if (settings.thekeypad)
+		if (parent?.globalTrueEntryDelay)
 			{
-			thekeypad.setEntryDelay(theentrydelay)
+			log.debug "True Entry Mode enabled issuing event SmartHome off"
+//			note data object created here is a string not a map, for reasons unknown map field fails						
+			def event = [
+				name:'alarmSystemStatus',
+				value: "off",
+				displayed: true,
+				description: "SHM Delay True Entry Delay",
+				data: "shmtruedelay_"+alarmstatus]
+			log.debug "event ${event}"	
+			sendLocationEvent(event)	//change alarmstate to stay	
 			}
+		else
+			{prepare_to_soundalarm(false)}
+		}
+	}	
+
+def prepare_to_soundalarm(shmtruedelay)
+	{
+	def alarm = location.currentState("alarmSystemStatus")
+	def alarmstatus = alarm?.value
+	def lastupdt = alarm?.date.time
+
+	log.debug "Prepare to sound alarm entered $shmtruedelay"
+//	When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
+	if (settings.thekeypad)
+		{
+		if (shmtruedelay)
+			{thekeypad.setEntryDelay(theentrydelay, [delay: 2000])}
+		else
+			{thekeypad.setEntryDelay(theentrydelay)}
+		}
 
 //		when siren is defined: wait 2 seconds allowing people to get through door, then blast a siren warning beep
 //		Aug 31, 2017 add simulated beep when no beep command
-		if (settings.thesiren)
+	if (settings.thesiren)
+		{
+		thesiren.each		//fails when not defined as multiple contacts
 			{
-			thesiren.each		//fails when not defined as multiple contacts
+			if (it.hasCommand("beep"))
 				{
-				if (it.hasCommand("beep"))
-					{
-					it.beep([delay: 2000])
-					}
-				else
-					{
-					it.on([delay: 2000])	
-					it.off([delay: 2250])
-					}
+				it.beep([delay: 2000])
 				}
-			}	
-			
+			else
+				{
+				it.on([delay: 2000])	
+				it.off([delay: 2250])
+				}
+			}
+		}	
+
 //		Trigger Alarm in theentrydelay seconds by opening the virtual sensor.
 //		Do not delay alarm when additional triggers occur by using overwrite: false
-		def now = new Date()
-		def runTime = new Date(now.getTime() + (theentrydelay * 1000))
-		runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt], overwrite: false]) 
-		}
+	def now = new Date()
+	def runTime = new Date(now.getTime() + (theentrydelay * 1000))
+	runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt, shmtruedelay: shmtruedelay], overwrite: false]) 
 	}
 
-//	Sound the Alarm. When SmartHome sees simulated sensor change to open, alarm will sound
+//	Sound the Alarm 
 def soundalarm(data)
 	{
 	def alarm2 = location.currentState("alarmSystemStatus")
 	def alarmstatus2 = alarm2.value
 	def lastupdt = alarm2.date.time
 	log.debug "soundalarm called: $alarmstatus2 $data ${data.lastupdt} $lastupdt"
-	if (alarmstatus2=="off")		//This compare is optional, but just incase 
+	if (alarmstatus2=="off" && !data.shmtruedelay) 
 		{}
 	else
 	if (data.lastupdt==lastupdt)		//if this does not match, the system was set off then rearmed in delay period
 		{
-		thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
-		log.debug "alarm triggered"	
-		thesimcontact.open()
-
+		if (data.shmtruedelay)
+			{
+			log.debug "soundalarm rearming in mode ${data.shmtruedelay}"
+			def event = [
+				name:'alarmSystemStatus',
+				value: data.shmtruedelay,
+				displayed: true,
+				description: "SHM Delay True Delay ReArm in $data.shmtruedelay",
+				data: "shmtruedelay_rearm"]
+			sendLocationEvent(event)	//change alarmstate to stay	
+			thesimcontact.close([delay: 2000])
+			log.debug "true entry delay alarm rearmed"	
+			thesimcontact.open([delay:2000])
+			}
+		else	
+			{
+			thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
+			log.debug "alarm triggered"	
+			thesimcontact.open()
+			}
 //		Aug 19, 2017 issue optional intrusion notificaion messages
 		if (parent?.globalIntrusionMsg)
 			{
@@ -614,6 +721,8 @@ def soundalarm(data)
 //			get names of open contacts for message
 			def door_names = thecontact.displayName	//name of each switch in a list(array)
 			def message = "${door_names} intrusion"
+			if (data?.motion){
+				message="${data.motion} motion detected"} 
 			if (parent?.global911 > ""  || parent?.globalPolice)
 				{
 				def msg_emergency
