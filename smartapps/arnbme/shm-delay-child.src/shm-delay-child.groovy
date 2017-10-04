@@ -18,6 +18,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Oct 03, 2017 V1.4.2  in routine childalarmStatusHandler only issue setArmedNight for each Xfinity 3400 keypad,
+ *					Iris does not have a night icon
  *	Sep 27, 2017 v1.4.1  soundalarm when open door at arming, then optional motion sensor trips, 
  *                          and door open for greater than entry delay seconds 
  *	Sep 26, 2017 v1.4.0  Add optional motion sensor to silence when monitored contact sensor opens in away mode 
@@ -533,9 +535,15 @@ def childalarmStatusHandler(evt)
 					
 		if (parent?.globalKeypad && theAlarm=="stay" && parent?.globalTrueNight && theMode=="Night" && thekeypad)
 			{
-			log.debug "armednight issued"
-			thekeypad.setArmedNight([delay: 2000])
-			}
+			thekeypad.each
+				{
+				if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
+					{
+					log.debug "matched, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
+					thekeypad.setArmedNight([delay: 2000])
+					}
+				}
+			}	
 		}
 	}	
 	
