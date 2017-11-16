@@ -17,7 +17,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *
+ *	Nov 14, 2017 v1.5.0  error sendnotificationtocontacts always logging
+ *	Nov 12, 2017 V1.5.0  Add support for Smartthings Contacts
  *	Oct 03, 2017 V1.4.2  in routine childalarmStatusHandler only issue setArmedNight for each Xfinity 3400 keypad,
  *					Iris does not have a night icon
  *	Sep 27, 2017 v1.4.1  soundalarm when open door at arming, then optional motion sensor trips, 
@@ -361,6 +362,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		thekeypad.each		//fails when not defined as multiple contacts
 			{
+//			log.debug "Current Arm Mode: ${it.currentarmMode} ${it.getManufacturerName()}"
 			if (!it.hasCommand("setEntryDelay"))
 				{
 				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads."
@@ -420,8 +422,17 @@ def pageThree(error_data)
 			paragraph "Following settings are used with Open Door and optional Intrusion messages"
 			input "theLog", "bool", required: false, defaultValue:true,
 				title: "Log to Notifications?"
-			input "thesendPush", "bool", required: false, defaultValue:true,
+    		if (location.contactBookEnabled)
+    			{
+    			input("recipients", "contact", title: "Notify Contacts",required:false,multiple:true) 
+				input "thesendPush", "bool", required: false, defaultValue:false,
+					title: "Send Push Notification?"
+				}
+			else
+				{
+				input "thesendPush", "bool", required: false, defaultValue:true,
 				title: "Send Push Notification?"
+				}
 			input "phone", "phone", required: false, 
 				title: "Send a text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
 			}
@@ -431,7 +442,7 @@ def pageThree(error_data)
 def pageThreeVerify() 				//edit page three info
 	{
 	def error_data
-	if (theLog || thesendPush || phone) 
+	if (theLog || thesendPush || phone|| recipients) 
 		{}
 	else
 		{
@@ -550,13 +561,18 @@ def childalarmStatusHandler(evt)
 // log, send notification, SMS message	
 def doNotifications(message)
 	{
+	def localmsg=message+" at  ${location.name}"	
 	if (theLog)
 		{
-		sendNotificationEvent(message)
+		sendNotificationEvent(localmsg)
 		}
+	if (location.contactBookEnabled && recipients)
+		{
+    	sendNotificationToContacts(localmsg, recipients, [event: false])	//Nov 11, 2017 send to selected contacts no log
+    	}
 	if (thesendPush)
 		{
-		sendPushMessage(message)
+		sendPushMessage(localmsg)
 		}
 	if (phone)
 		{
@@ -564,7 +580,7 @@ def doNotifications(message)
 //		log.debug "$phones"
 		for (def i = 0; i < phones.size(); i++)
 			{
-			sendSmsMessage(phones[i], message)
+			sendSmsMessage(phones[i], localmsg)
 			}
 		}
 	}	
