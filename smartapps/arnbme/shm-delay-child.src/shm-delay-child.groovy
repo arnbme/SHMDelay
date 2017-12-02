@@ -17,6 +17,11 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Dec 02, 2017 v1.5.1  Motion Sensor in Away mode during entry delay time period, triggers extraneous alarm. 
+ 							When a followed motion sensor senses motion, and the contact sensor is closed after being open,
+ 							and prior to disarming the alarm, a false alarm was issued
+ *						 In other words --- During away mode: you open a door starting entry delay time, walk in, then close the door,
+ 							trigger a followed motion sensor prior to disarming, created a false intrusion alert.
  *	Nov 14, 2017 v1.5.0  error sendnotificationtocontacts always logging
  *	Nov 12, 2017 V1.5.0  Add support for Smartthings Contacts
  *	Oct 03, 2017 V1.4.2  in routine childalarmStatusHandler only issue setArmedNight for each Xfinity 3400 keypad,
@@ -589,10 +594,12 @@ def doNotifications(message)
 
 def motionActiveHandler(evt)
 	{
-//	In Away mode, when associated contact sensor is closed and not in exitdelay time frame, trigger instant alarm
-//	add logic to determine when door was never closed to trigger alarm
-//		(curr_contact == "closed" && currSecs - alarmSecs >= theexitdelay) ||
-//		(curr_contact == "open" and contact open for more than 1 minute))
+//	A followed motion sensor shows motion
+//	if not in Away mode, Ignore Use SHM to monitor sensors in Night mode
+//	When associated contact sensor is closed and not in exitdelay time frame, trigger alarm on
+//		followed motion sensor. Still unable to determine when in ExitDelay fix this
+//	in Entry delay alarm if contact sensor was not opened within entry delay time
+
 //	get alarmstatus and time
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
@@ -600,42 +607,31 @@ def motionActiveHandler(evt)
 	def alarmSecs = Math.round( lastupdt / 1000)
 
 //	get current time and alarm time in seconds
-	def currT = now()
-	def currSecs = Math.round(currT / 1000)	//round back to seconds
+//	def currT = now()
+//	def currSecs = Math.round(currT / 1000)	//round back to seconds
 
 //	get status of associated contact sensor
-	def curr_contact = thecontact.currentContact
+//	def curr_contact = thecontact.currentContact (will be open or closed)
 	if (alarmstatus == "away")
 		{
-		if (curr_contact == "closed" && currSecs - alarmSecs >= theexitdelay)
+//		get the last 10 contact sensor events, then find the time the contact was last opened, if open not found: soundalarm
+		def events=thecontact.events()
+		def esize=events.size()
+		def i = 0
+		def open_seconds=999999
+		for(i; i < esize; i++)
+			{
+			if (events[i].value == "open"){
+				open_seconds = Math.round((now() - events[i].date.getTime())/1000)
+				log.debug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
+				break;
+				}
+			}	
+		if (open_seconds>theentrydelay)
 			{
 			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: themotionsensor.displayName]]
-			log.debug "Away Mode instant on with door closed for motion sensor ${aMap.data.lastupdt}"
+			log.debug "Away Mode: Intrusion caused by followed motion sensor ${aMap.data.lastupdt}"
 			soundalarm(aMap.data)
-			}
-		else
-		if (curr_contact == "open")	//if contact sensor open for more than entry delay seconds, instant alarm 
-			{
-//			get the last 10 events, then find the time the contact was last opened, if open not found: soundalarm
-//			otherwise sound alarm if open greater than theentrydelay
-			def events=thecontact.events()
-			def esize=events.size()
-			def i = 0
-			def open_seconds=999999
-			for(i; i < esize; i++)
-				{
-				if (events[i].value == "open"){
-					open_seconds = Math.round((now() - events[i].date.getTime())/1000)
-					log.debug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
-					break;
-					}
-				}	
-			if (open_seconds>theentrydelay)
-				{
-				def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: themotionsensor.displayName]]
-				log.debug "Away Mode instant on with door open for motion sensor ${aMap.data.lastupdt}"
-				soundalarm(aMap.data)
-				}
 			}
 		}	
 
