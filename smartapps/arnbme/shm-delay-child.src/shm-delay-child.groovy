@@ -17,11 +17,13 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Dec 20, 2017 v1.5.2  Motion Sensor in Away mode during exit delay may trigger extraneous alarm
+ * 							when door not currently or recently opened.  
  *	Dec 02, 2017 v1.5.1  Motion Sensor in Away mode during entry delay time period, triggers extraneous alarm. 
- 							When a followed motion sensor senses motion, and the contact sensor is closed after being open,
- 							and prior to disarming the alarm, a false alarm was issued
+ *							When a followed motion sensor senses motion, and the contact sensor is closed after being open,
+ *							and prior to disarming the alarm, a false alarm was issued
  *						 In other words --- During away mode: you open a door starting entry delay time, walk in, then close the door,
- 							trigger a followed motion sensor prior to disarming, created a false intrusion alert.
+ *							trigger a followed motion sensor prior to disarming, created a false intrusion alert.
  *	Nov 14, 2017 v1.5.0  error sendnotificationtocontacts always logging
  *	Nov 12, 2017 V1.5.0  Add support for Smartthings Contacts
  *	Oct 03, 2017 V1.4.2  in routine childalarmStatusHandler only issue setArmedNight for each Xfinity 3400 keypad,
@@ -594,26 +596,32 @@ def doNotifications(message)
 
 def motionActiveHandler(evt)
 	{
-//	A followed motion sensor shows motion
-//	if not in Away mode, Ignore Use SHM to monitor sensors in Night mode
-//	When associated contact sensor is closed and not in exitdelay time frame, trigger alarm on
-//		followed motion sensor. Still unable to determine when in ExitDelay fix this
-//	in Entry delay alarm if contact sensor was not opened within entry delay time
+//	A motion sensor shows motion
+//	if not in Away mode, ignore all motion sensor activity
+//	When alarm was set less than exit delay time, ignore the motion sensor activity
+//	else
+//	Entry delay alarm if contact sensor was not opened within entry delay time
 
-//	get alarmstatus and time
+//	get alarmstatus and time alarm set in seconds
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
+	if (alarmstatus != "away")
+		{return false}
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
 
-//	get current time and alarm time in seconds
-//	def currT = now()
-//	def currSecs = Math.round(currT / 1000)	//round back to seconds
+//	get current time in seconds
+	def currT = now()
+	def currSecs = Math.round(currT / 1000)	//round back to seconds
 
 //	get status of associated contact sensor
-//	def curr_contact = thecontact.currentContact (will be open or closed)
-	if (alarmstatus == "away")
+//	def curr_contact = thecontact.currentContact (will be open or closed) not currently in use
+
+	if (theexitdelay > 0 && currSecs - alarmSecs < theexitdelay)
+		{return false}
+	else
 		{
+//		process motion sensor event that may occur during an entrydelay		
 //		get the last 10 contact sensor events, then find the time the contact was last opened, if open not found: soundalarm
 		def events=thecontact.events()
 		def esize=events.size()
