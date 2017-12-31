@@ -14,6 +14,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Dec 31, 2017 v1.6.0  Add bool to allow Multiple Motion sensors in delay profile,
+ *							without forcing existing users to update their profile data
  *	Sep 23, 2017 v1.4.0  Document True Entry Delay and optional followed motion sensor in Delay Profile 
  *	Sep 23, 2017 v1.3.0  Add Global setting for option True Entry Delay, default off/false 
  * 	Sep 06, 2017 v1.2.0b add custom app remove button and text
@@ -99,6 +101,8 @@ def main()
 					title: "Add 3 digit emergency call number on intrusion message?")
 				input "globalPolice", "phone", required: false, 
 					title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
+				input "globalMultipleMotion", "bool", required: true, defaultValue: false,
+					title: "Allow Multiple Motion Sensors in Delay Profile. Default: Off/False"
 				}	
 			if (globalFixMode && modeFixChild == "Create")
 				{

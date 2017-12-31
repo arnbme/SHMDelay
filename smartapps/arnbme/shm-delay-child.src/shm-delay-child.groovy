@@ -17,8 +17,11 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Dec 31, 2017 v1.6.0  Allow for multiple Motion Sensors in profile, use global to set multiple motion sensors
+ *							keeping current user profiles intact for existing users
+ *                       Per user request allow up to 90 seconds on exit and entry delays	
  *	Dec 20, 2017 v1.5.2  Motion Sensor in Away mode during exit delay may trigger extraneous alarm
- * 							when door not currently or recently opened.  
+ * 							when door not currently or not recently opened. 
  *	Dec 02, 2017 v1.5.1  Motion Sensor in Away mode during entry delay time period, triggers extraneous alarm. 
  *							When a followed motion sensor senses motion, and the contact sensor is closed after being open,
  *							and prior to disarming the alarm, a false alarm was issued
@@ -146,10 +149,18 @@ def pageOne()
 				title: "Simulated Contact Sensor (Must Monitor in SmartHome)"
 			}
 		section
-			{	
-			input "themotionsensor", "capability.motionSensor", required: false,
-				title: "(Optional!) Ignore this Motion Sensor when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
-			}
+			{
+			if (parent?.globalMultipleMotion)
+				{
+				input "themotionsensors", "capability.motionSensor", required: false, multiple: true,
+						title: "(Optional!) Ignore these Motion Sensors when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
+				}	
+			else
+				{	
+				input "themotionsensor", "capability.motionSensor", required: false,
+					title: "(Optional!) Ignore this Motion Sensor when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
+				}
+			}	
 		if (thecontact)
 			{
 			section([mobileOnly:true]) 
@@ -350,10 +361,10 @@ def pageTwo()
 				paragraph "${state.error_data}"
 				state.remove("error_data")
 				}
-			input "theentrydelay", "number", required: true, range: "0..60", defaultValue: 30,
-				title: "Alarm entry delay time in seconds from 0 to 60"
-			input "theexitdelay", "number", required: true, range: "0..60", defaultValue: 30,
-				title: "When arming in away mode set an exit delay time in seconds from 0 to 60. When using lock-manager app's exit delay, set to 0"
+			input "theentrydelay", "number", required: true, range: "0..90", defaultValue: 30,
+				title: "Alarm entry delay time in seconds from 0 to 90"
+			input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
+				title: "When arming in away mode set an exit delay time in seconds from 0 to 90. When using lock-manager app's exit delay, set to 0"
 			input "thekeypad", "capability.button", required: false, multiple: true,
 				title: "Zero or more Optional Keypads: sounds entry delay tone "
 			input "thesiren", "capability.alarm", required: false, multiple: true,
@@ -483,8 +494,20 @@ def initialize()
 	subscribe(location, "alarmSystemStatus", childalarmStatusHandler)
 	subscribe(thecontact, "contact.open", doorOpensHandler)
 	subscribe(thecontact, "contact.closed", contactClosedHandler)	//open door monitor
-	if (themotionsensor){
-		subscribe(themotionsensor, "motion.active", motionActiveHandler)}
+	if (parent?.globalMultipleMotion)
+		{
+		if (themotionsensors)
+			{
+			subscribe(themotionsensors, "motion.active", motionActiveHandler)
+			}
+		}	
+	else
+		{
+		if (themotionsensor)
+			{
+			subscribe(themotionsensor, "motion.active", motionActiveHandler)
+			}
+		}
 	}	
 
 /******** Common Routine monitors the alarm state for changes ********/
@@ -597,6 +620,9 @@ def doNotifications(message)
 def motionActiveHandler(evt)
 	{
 //	A motion sensor shows motion
+	def triggerDevice = evt.getDevice()
+	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
+
 //	if not in Away mode, ignore all motion sensor activity
 //	When alarm was set less than exit delay time, ignore the motion sensor activity
 //	else
@@ -626,6 +652,7 @@ def motionActiveHandler(evt)
 		def events=thecontact.events()
 		def esize=events.size()
 		def i = 0
+		log.debug "${esize}"
 		def open_seconds=999999
 		for(i; i < esize; i++)
 			{
@@ -635,9 +662,10 @@ def motionActiveHandler(evt)
 				break;
 				}
 			}	
+		log.debug "scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
-			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: themotionsensor.displayName]]
+			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
 			log.debug "Away Mode: Intrusion caused by followed motion sensor ${aMap.data.lastupdt}"
 			soundalarm(aMap.data)
 			}
