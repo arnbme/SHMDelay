@@ -15,7 +15,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *	Dec 31, 2017 v1.6.0  Add bool to allow Multiple Motion sensors in delay profile,
- *							without forcing existing users to update their profile data
+ *							without forcing existing users to update their profile data.
  *	Sep 23, 2017 v1.4.0  Document True Entry Delay and optional followed motion sensor in Delay Profile 
  *	Sep 23, 2017 v1.3.0  Add Global setting for option True Entry Delay, default off/false 
  * 	Sep 06, 2017 v1.2.0b add custom app remove button and text
