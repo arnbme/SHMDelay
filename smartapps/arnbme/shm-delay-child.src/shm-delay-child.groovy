@@ -17,6 +17,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jan 03, 2018 v1.7.2  Allow RG Linear devices as real. Check for RG Linear in typeName 
  *	Jan 02, 2018 v1.7.1  Allow ADT NOVA devices as real. Check for Nortek in typeName 
  *	Jan 02, 2018 v1.7.0  Allow motion sensors to have a short delay.
  *							Sometimes a motion sensor sees a door and triggers alarm
@@ -206,7 +207,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek)(.*)")))
+		    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
 			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -236,7 +237,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek)(.*)")))
+		    !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
