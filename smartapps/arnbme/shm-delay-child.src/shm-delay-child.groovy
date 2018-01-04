@@ -237,7 +237,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		    !thecontact.typeName.matches(ok_names)))
 //	Jan 3, 2018	    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
-			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, enter data into Contact Name field, or tap 'Remove'\n\n"
+			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, or enter data into Contact Name field, or tap 'Remove'\n\n"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 				for some reason the prior line is not seen as a string
 */			}
