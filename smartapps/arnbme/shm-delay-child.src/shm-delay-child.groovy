@@ -19,7 +19,7 @@
  *  for the specific language governing permissions and limitations under the License.
  *	Jan 04, 2018 v1.7.3  After having to issue 1.7.2 and 1.7.1, added optional user supplied override name field
  *							Hopefully ends this mishagas
- *							Use subroutine fix_error_data, simplify and slim down the error_msg code
+ *							Simplify and slim down the error logic code by using trim() and non null start field
  *							Change use of siren "on" command to "siren" to be more correct
  *	Jan 03, 2018 v1.7.2  Allow RG Linear devices as real. Check for RG Linear in typeName 
  *	Jan 02, 2018 v1.7.1  Allow ADT NOVA devices as real. Check for Nortek in typeName 
@@ -174,7 +174,7 @@ def pageOne()
 		section
 			{
 			input "contactname", type: "text", required: false, 
-				title: "(Optional!) Contact Name: When Real Contact Sensor is rejected as simulated, enter 4 to 8 characters from the IDE Device Type field to force accept device", submitOnChange: true
+				title: "(Optional!) Contact Name: When Real Contact Sensor is rejected as simulated, enter 4 to 8 alphanumeric characters from the IDE Device Type field to force accept device", submitOnChange: true
 			}
 
 		if (thecontact)
@@ -198,20 +198,18 @@ def pageOne()
 
 def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	def error_data
+	def error_data = ""
 	def pageTwoWarning
 	def ok_names = "(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear"
 	if (contactname)
 		{
 		def wknm=contactname.trim()
-		def wknmsz=wknm.size()
-		if (wknmsz > 3 && wknmsz < 9)
+		if (wknm.matches("([a-zA-Z0-9 ]{4,8})"))
 			{ok_names = ok_names + "|" + wknm + ")(.*)"}		
 		else
 			{
 			ok_names = ok_names + ")(.*)"
-			if (wknmsz>0)
-				{error_data = "Contact Name length must be 4 to 8 characters, please reenter"}
+			error_data = "Contact Name length must be alphanumeric 4 to 8 characters, please reenter\n\n"
 			}
 		}	
 	else	
@@ -230,8 +228,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		  log.debug "MATCH=$match"}
 */		if (thecontact.typeName.matches("(.*)(?i)(keypad)(.*)"))
 			{
-			error_data=fix_error_data(error_data)
-			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'"
+			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
@@ -240,16 +237,14 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		    !thecontact.typeName.matches(ok_names)))
 //	Jan 3, 2018	    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
-			error_data=fix_error_data(error_data)
-			error_data+="The 'Real Contact Sensor' is appears to be simulated. Please select a differant real contact sensor, enter data into Contact Name field, or tap 'Remove'"
+			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, enter data into Contact Name field, or tap 'Remove'\n\n"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 				for some reason the prior line is not seen as a string
 */			}
 		else
 		if (!iscontactUnique())			
 			{
-			error_data=fix_error_data(error_data)
-			error_data+="The 'Real Contact Sensor' is already in use. Please select a differant real contact sensor or tap 'Remove'"
+			error_data+="The 'Real Contact Sensor' is already in use. Please select a differant real contact sensor or tap 'Remove'\n\n"
 			}
 		}	
 
@@ -258,7 +253,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (thesimcontact.typeName.matches("(.*)(?i)keypad(.*)"))
 			{
 			error_data=fix_error_data(error_data)
-			error_data+="\n\nDevice: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'"
+			error_data+="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
@@ -271,57 +266,39 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 				{
 				if (parent?.globalSimUnique)
 					{
-					error_data=fix_error_data(error_data)
-					error_data+="\n\nThe 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
+					error_data+="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'\n\n"
 					}
 				else
 				if (parent?.globalIntrusionMsg)
 					{}
 				else	
-				if (error_data!=null)
+				if (error_data!="")
 					{
-					error_data+="\n\nNotice: Intrusion messages are off,  but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					error_data+="Notice: Intrusion messages are off,  but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device\n\n"
 					}
 				else
 					{
-					pageTwoWarning="Notice: Intrusion messages are off, but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					pageTwoWarning="Notice: Intrusion messages are off, but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device\n\n"
 					}
 				}	
 			}	
 		else
 			{
-			def msg="The 'Simulated Contact Sensor' is real. Please select a differant simulated contact sensor or tap 'Remove'"
-			if (error_data!=null)
-				{
-				error_data+="\n\n"+msg
-				}
-			else
-				{
-				error_data=msg
-				}
+			error_data+="The 'Simulated Contact Sensor' is real. Please select a differant simulated contact sensor or tap 'Remove'\n\n"
 			}
 		}	
-	if (error_data!=null)
+	if (error_data!="")
 		{
-		state.error_data=error_data
+		state.error_data=error_data.trim()
 		pageOne()
 		}
 	else
 		{
 		if (pageTwoWarning!=null)			
-			{state.error_data=error_data}
+			{state.error_data=error_data.trim()}
 		pageTwo()
 		}
 	}	
-
-def fix_error_data(error_data_in)
-	{
-	if (error_data_in!=null)
-		return error_data_in+="\n\n"
-	else
-		return ""
-	}
-
 
 def iscontactUnique()
 	{
@@ -415,7 +392,7 @@ def pageTwo()
 
 def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	def error_data
+	def error_data=""
 	if (thekeypad)
 		{
 		thekeypad.each		//fails when not defined as multiple contacts
@@ -423,7 +400,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 //			log.debug "Current Arm Mode: ${it.currentarmMode} ${it.getManufacturerName()}"
 			if (!it.hasCommand("setEntryDelay"))
 				{
-				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads."
+				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads.\n\n"
 				}
 			}
 		}	
@@ -435,19 +412,17 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 				{}
 			else
 				{
-				error_data=fix_error_data(error_data)
-				error_data+="\n\nSiren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens."
+				error_data+="Siren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens.\n\n"
 				}	
 			}
 		}	
 	if (theentrydelay < 1 && theexitdelay < 1)
 		{
-		error_data=fix_error_data(error_data)
-		error_data+="\n\nIllogical condition: entry and exit delays are both zero"
+		error_data+="Illogical condition: entry and exit delays are both zero\n\n"
 		}	
-	if (error_data!=null)
+	if (error_data!="")
 		{
-		state.error_data=error_data
+		state.error_data=error_data.trim()
 		pageTwo()
 		}
 	else 
