@@ -17,6 +17,16 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jan 04, 2018 v1.7.3  After having to issue 1.7.2 and 1.7.1, added optional user supplied override name field
+ *							Hopefully ends this mishagas
+ *							Simplify and slim down the error logic code by using trim() and non null start field
+ *							Change use of siren "on" command to "siren" to be more correct
+ *	Jan 03, 2018 v1.7.2  Allow RG Linear devices as real. Check for RG Linear in typeName 
+ *	Jan 02, 2018 v1.7.1  Allow ADT NOVA devices as real. Check for Nortek in typeName 
+ *	Jan 02, 2018 v1.7.0  Allow motion sensors to have a short delay.
+ *							Sometimes a motion sensor sees a door and triggers alarm
+ *							before the door contact sensor registers as open. See routine waitfordooropen
+ *							added field themotiondelay in profile. 
  *	Dec 31, 2017 v1.6.0  Allow for multiple Motion Sensors in profile, use global to set multiple motion sensors
  *							keeping current user profiles intact for existing users
  *                       Per user request allow up to 90 seconds on exit and entry delays	
@@ -131,7 +141,7 @@ def pageZero()
 
 def pageOne()
 	{
-	dynamicPage(name: "pageOne", title: "The Contact Sensors", uninstall: true)
+	dynamicPage(name: "pageOne", title: "The Sensors", uninstall: true)
 		{
 		section
 			{
@@ -161,6 +171,12 @@ def pageOne()
 					title: "(Optional!) Ignore this Motion Sensor when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
 				}
 			}	
+		section
+			{
+			input "contactname", type: "text", required: false, 
+				title: "(Optional!) Contact Name: When Real Contact Sensor is rejected as simulated, enter 4 to 8 alphanumeric characters from the IDE Device Type field to force accept device", submitOnChange: true
+			}
+
 		if (thecontact)
 			{
 			section([mobileOnly:true]) 
@@ -182,11 +198,29 @@ def pageOne()
 
 def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	def error_data
+	def error_data = ""
 	def pageTwoWarning
+	def ok_names = "(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear"
+	if (contactname)
+		{
+		def wknm=contactname.trim()
+		if (wknm.matches("([a-zA-Z0-9 ]{4,8})"))
+			{ok_names = ok_names + "|" + wknm + ")(.*)"}		
+		else
+			{
+			ok_names = ok_names + ")(.*)"
+			error_data = "Contact Name length must be alphanumeric 4 to 8 characters, please reenter\n\n"
+			}
+		}	
+	else	
+		{
+		ok_names = ok_names + ")(.*)"
+//		log.debug "contact name field not provided"
+		}
 	if (thecontact)
 		{
-/*		def txt = "xfinity 3400 Keypad xyz"		//test code for failing match group test 
+/*		log.debug "editing contact name ${thecontact.typeName}"
+		def txt = "xfinity 3400 Keypad xyz"		//test code for failing match group test 
 		def m
 		if ((m = txt =~ /(.*)(?i)(keypad)(.*)/)) {
 		  log.debug "m $m"	
@@ -194,22 +228,23 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		  log.debug "MATCH=$match"}
 */		if (thecontact.typeName.matches("(.*)(?i)(keypad)(.*)"))
 			{
-			error_data="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'"
+			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
 		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
 		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave)(.*)")))
+		    !thecontact.typeName.matches(ok_names)))
+//	Jan 3, 2018	    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
-			error_data="The 'Real Contact Sensor' is simulated. Please select a differant real contact sensor or tap 'Remove'"
+			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, or enter data into Contact Name field, or tap 'Remove'\n\n"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
 				for some reason the prior line is not seen as a string
 */			}
 		else
 		if (!iscontactUnique())			
 			{
-			error_data="The 'Real Contact Sensor' is already in use. Please select a differant real contact sensor or tap 'Remove'"
+			error_data+="The 'Real Contact Sensor' is already in use. Please select a differant real contact sensor or tap 'Remove'\n\n"
 			}
 		}	
 
@@ -217,70 +252,50 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		if (thesimcontact.typeName.matches("(.*)(?i)keypad(.*)"))
 			{
-			if (error_data!=null)
-				{
-				error_data+="\n\nDevice: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'"
-				}
-			else
-				{
-				error_data="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'"
-				}
+			error_data=fix_error_data(error_data)
+			error_data+="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
 		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
-		    !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave)(.*)")))
+		    !thesimcontact.typeName.matches(ok_names)))
+// Jan 3, 2017   !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
 				if (parent?.globalSimUnique)
 					{
-					if (error_data!=null)
-						{
-						error_data+="\n\nThe 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
-						}
-					else
-						{
-						error_data="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'"
-						}
+					error_data+="The 'Simulated Contact Sensor' is already in use. Please select a differant simulated contact sensor or tap 'Remove'\n\n"
 					}
 				else
 				if (parent?.globalIntrusionMsg)
 					{}
 				else	
-				if (error_data!=null)
+				if (error_data!="")
 					{
-					error_data+="\n\nNotice: Intrusion messages are off,  but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					error_data+="Notice: Intrusion messages are off,  but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device\n\n"
 					}
 				else
 					{
-					pageTwoWarning="Notice: Intrusion messages are off, but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device"
+					pageTwoWarning="Notice: Intrusion messages are off, but 'Simulated Contact Sensor' already in use. Ignore or tap 'Back' to change device\n\n"
 					}
 				}	
 			}	
 		else
 			{
-			def msg="The 'Simulated Contact Sensor' is real. Please select a differant simulated contact sensor or tap 'Remove'"
-			if (error_data!=null)
-				{
-				error_data+="\n\n"+msg
-				}
-			else
-				{
-				error_data=msg
-				}
+			error_data+="The 'Simulated Contact Sensor' is real. Please select a differant simulated contact sensor or tap 'Remove'\n\n"
 			}
 		}	
-	if (error_data!=null)
+	if (error_data!="")
 		{
-		state.error_data=error_data
+		state.error_data=error_data.trim()
 		pageOne()
 		}
 	else
 		{
 		if (pageTwoWarning!=null)			
-			{state.error_data=error_data}
+			{state.error_data=error_data.trim()}
 		pageTwo()
 		}
 	}	
@@ -365,6 +380,8 @@ def pageTwo()
 				title: "Alarm entry delay time in seconds from 0 to 90"
 			input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
 				title: "When arming in away mode set an exit delay time in seconds from 0 to 90. When using lock-manager app's exit delay, set to 0"
+			input "themotiondelay", "number", required: true, range: "0..10", defaultValue: 0,
+				title: "When arming in away mode optional motion sensor entry delay time in seconds from 0 to 10, default:0. Usually not needed. Fixes a motion sensor reacting to door movement before contact sensor registers as open. Only when needed, suggested initial value is 5."
 			input "thekeypad", "capability.button", required: false, multiple: true,
 				title: "Zero or more Optional Keypads: sounds entry delay tone "
 			input "thesiren", "capability.alarm", required: false, multiple: true,
@@ -375,7 +392,7 @@ def pageTwo()
 
 def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 	{
-	def error_data
+	def error_data=""
 	if (thekeypad)
 		{
 		thekeypad.each		//fails when not defined as multiple contacts
@@ -383,7 +400,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 //			log.debug "Current Arm Mode: ${it.currentarmMode} ${it.getManufacturerName()}"
 			if (!it.hasCommand("setEntryDelay"))
 				{
-				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads."
+				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads.\n\n"
 				}
 			}
 		}	
@@ -391,33 +408,21 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		thesiren.each		//fails when not defined as multiple contacts
 			{
-			if (it.hasCommand("beep") || (it.hasCommand("on") && it.hasCommand("off")))
+			if (it.hasCommand("beep") || (it.hasCommand("siren") && it.hasCommand("off")))
 				{}
-			else	
-			if (!error_data!=null)
+			else
 				{
-				error_data+="\n\nSiren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens."
-				}
-			else	
-				{
-				error_data="Siren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens."
-				}
-			}	
+				error_data+="Siren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens.\n\n"
+				}	
+			}
 		}	
 	if (theentrydelay < 1 && theexitdelay < 1)
 		{
-		if (!error_data!=null)
-			{
-			error_data+="\n\nIllogical condition: entry and exit delays are both zero"
-			}
-		else
-			{
-			error_data="Illogical condition: entry and exit delays are both zero"
-			}
+		error_data+="Illogical condition: entry and exit delays are both zero\n\n"
 		}	
-	if (error_data!=null)
+	if (error_data!="")
 		{
-		state.error_data=error_data
+		state.error_data=error_data.trim()
 		pageTwo()
 		}
 	else 
@@ -621,7 +626,7 @@ def motionActiveHandler(evt)
 	{
 //	A motion sensor shows motion
 	def triggerDevice = evt.getDevice()
-	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
+//	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
 
 //	if not in Away mode, ignore all motion sensor activity
 //	When alarm was set less than exit delay time, ignore the motion sensor activity
@@ -652,7 +657,7 @@ def motionActiveHandler(evt)
 		def events=thecontact.events()
 		def esize=events.size()
 		def i = 0
-		log.debug "${esize}"
+//		log.debug "${esize}"
 		def open_seconds=999999
 		for(i; i < esize; i++)
 			{
@@ -662,12 +667,19 @@ def motionActiveHandler(evt)
 				break;
 				}
 			}	
-		log.debug "scan done ${esize} ${open_seconds}"
+//		log.debug "scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
 			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
-			log.debug "Away Mode: Intrusion caused by followed motion sensor ${aMap.data.lastupdt}"
-			soundalarm(aMap.data)
+			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
+			if (themotiondelay > 0)
+				{
+				def now = new Date()
+				def runTime = new Date(now.getTime() + (themotiondelay * 1000))
+				runOnce(runTime, waitfordooropen, [data: aMap]) 
+				}
+			else	
+				{soundalarm(aMap.data)}
 			}
 		}	
 
@@ -714,6 +726,10 @@ def doorOpensHandler(evt)
 	else
 	if (alarmstatus == "stay" || alarmstatus == "away")
 		{
+		if (themotiondelay > 0)
+			{
+			unschedule(waitfordooropen)
+			}
 		if (parent?.globalTrueEntryDelay)
 			{
 			log.debug "True Entry Mode enabled issuing event SmartHome off"
@@ -760,7 +776,8 @@ def prepare_to_soundalarm(shmtruedelay)
 				}
 			else
 				{
-				it.on([delay: 2000])	
+				it.off([delay: 2500])		//double off the siren to hopefully shut it
+				it.siren([delay: 2000])	
 				it.off([delay: 2250])
 				}
 			}
@@ -771,6 +788,13 @@ def prepare_to_soundalarm(shmtruedelay)
 	def now = new Date()
 	def runTime = new Date(now.getTime() + (theentrydelay * 1000))
 	runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt, shmtruedelay: shmtruedelay], overwrite: false]) 
+	}
+
+//	wait for door to open in themotiondelay seconds 
+def waitfordooropen(evt)
+	{
+	log.debug "waitfordooropen entered ${evt}"
+	soundalarm (evt.data)
 	}
 
 //	Sound the Alarm 
