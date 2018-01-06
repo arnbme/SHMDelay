@@ -252,7 +252,6 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		if (thesimcontact.typeName.matches("(.*)(?i)keypad(.*)"))
 			{
-			error_data=fix_error_data(error_data)
 			error_data+="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
