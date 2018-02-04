@@ -17,6 +17,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Feb 03, 2018 v1.7.5  When Entry Delay time is 0, alarm did not trigger. Mostly an Exit Delay testing issue.
+ *							in doorOpensHandler add a test for theentrydelay < 1
  *	Jan 08, 2018 v1.7.4  In doorOpensHandler reduce overhead when monitored contact sensor opens by exiting when alarm=off and
  *							eliminate read of old events that is no longer needed or used
  *	Jan 04, 2018 v1.7.3  After having to issue 1.7.2 and 1.7.1, added optional user supplied override name field
@@ -720,10 +722,13 @@ def doorOpensHandler(evt)
 		new_monitor()
 		}
 	else	
-	if (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")
+	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night"))
 		{
 		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
-		log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"
+		if (theentrydelay<1)
+			{log.debug "EntryDelay is ${settings.theentrydelay}, instant on for alarm ${aMap.data.lastupdt}"}
+		else
+			{log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"}
 		soundalarm(aMap.data)
 		}
 	else
