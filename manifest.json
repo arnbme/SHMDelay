@@ -1,0 +1,52 @@
+{
+    "namespace": "arnbme",
+    "repoOwner": "arnbme",
+    "repoName": "SHMDelay",
+    "repoBranch": "master",
+    "name": "Smarthome Entry and Exit Delays",
+    "author": "Arn B",
+    "description": "Simulates the Entry and Exit Delay parameters currently missing in Smart Home Monitor (SHM)",
+    "category": "Community Created Smartapps",
+    "bannerUrl": "https://www.arnb.org/IMAGES/hourglass.png",
+    "forumUrl": "https://community.smartthings.com/t/release-smarthome-delay/95991/",
+    "docUrl": "https://community.smartthings.com/t/release-smarthome-delay/95991/",
+    "releaseType": "production",
+    "keywords": ["Entry Delay", "Exit Delay", "SmartHome", "SHM", "keypad"],
+    "notes": "Nothing to show here (yet)",
+    "smartApps": 
+    	{
+        "parent": 
+        	{
+            "name": "SHM Delay",
+            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
+            "published": true,
+            "oAuth": false,
+            "version": "1.6.0",
+            "appSettings": {},
+            "appUrl": "smartapps/arnbme/shm-delay.src/shm-delay.groovy"
+        	},
+        "children": 
+        	[
+        	{
+            "name": "SHM Delay Child ",
+            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
+            "published": false,
+            "oAuth": false,
+            "version": "1.7.5",
+            "appSettings": {},
+            "appUrl": "smartapps/arnbme/shm-delay-child.src/shm-delay-child.groovy",
+            "optional": false
+        	},
+        	{
+            "name": "SHM Delay ModeFix",
+            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
+            "published": false,
+            "oAuth": false,
+            "version": "0.1.2",
+            "appSettings": {},
+            "appUrl": "smartapps/arnbme/shm-delay-modefix.src/shm-delay-modefix.groovy",
+            "optional": false
+        	}
+        	]
+    	}
+}
