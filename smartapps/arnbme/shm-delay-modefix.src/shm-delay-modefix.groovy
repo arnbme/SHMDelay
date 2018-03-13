@@ -13,6 +13,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Mar 11, 2018    v0.1.3  add logging to notifications when mode is changed. 
+ *								App issued changes are not showing in PhoneApp notifications
+ *								Assumed system would log this but it does not
  * 	Sep 23, 2017    v0.1.2  Ignore alarm changes caused by True Entry Delay in SHM Delay Child
  * 	Sep 05, 2017    v0.1.1  minor code change to allow this module to run stand alone
  * 	Sep 02, 2017    v0.1.0  add code to fix bad alarmstate set by unmodified Keypad module
@@ -221,7 +224,20 @@ def initialize()
 
 def alarmStatusHandler(evt)
 	{
+/*	some entries to this function are direct from ST Events
+	others are from SHM Delay Child repackaged evt object 
+	which passes a childid property stoppings multiple notifications from sending
+*/	
 	def theAlarm = evt.value
+	def fromST=true					//event is from Smarthing subscribe till proven otherwise
+	try
+		{
+		if (evt.childid)
+			fromST=false
+		}
+	catch (e)
+		{}
+//	log.debug "alarm status entry ${fromST} ${theAlarm} ${evt.source}"
 	if (theAlarm == "night")	//bad AlarmState set by unmodified Keypad module
 		{
   		def event = [
@@ -260,7 +276,8 @@ def alarmStatusHandler(evt)
 			}
 		if (!modeOK)
 			{
-			setLocationMode(offDefault)
+			if (fromST)
+				setLocationMode(offDefault)
 			theMode=offDefault
 			}
 		}
@@ -274,7 +291,8 @@ def alarmStatusHandler(evt)
 			}
 		if (!modeOK)
 			{
-			setLocationMode(stayDefault)
+			if (fromST)
+				setLocationMode(stayDefault)
 			theMode=stayDefault
 			}
 		}
@@ -288,7 +306,8 @@ def alarmStatusHandler(evt)
 			}
 		if (!modeOK)
 			{
-			setLocationMode(awayDefault)
+			if (fromST)			
+				setLocationMode(awayDefault)
 			theMode=awayDefault
 			}
 		}
@@ -296,6 +315,8 @@ def alarmStatusHandler(evt)
 		log.error "ModeFix alarmStatusHandler Unknown alarm mode: ${theAlarm} in "}
 	if (theMode != oldMode)
 		{
+		if (fromST)	
+			sendNotificationEvent("Modefix: Mode changed to ${theMode}. Cause: ${evt.source} set alarm to ${theAlarm}")
 		log.debug("ModeFix alarmStatusHandler Mode was changed From:$oldMode To:$theMode")
 		}
 	return theMode

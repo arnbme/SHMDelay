@@ -17,6 +17,13 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Mar 04	2018 v2.0.0  Ignore User profiles in function iscontactUnique().
+ *							add support for globalDisable flag in first level event processing functions
+ *							add logic supporting keypad entry tones and adjust definititions when globalKeypadControl
+ *	Feb 03, 2018 v1.7.5  When Entry Delay time is 0, alarm did not trigger. Mostly an Exit Delay testing issue.
+ *							in doorOpensHandler add a test for theentrydelay < 1
+ *	Jan 08, 2018 v1.7.4  In doorOpensHandler reduce overhead when monitored contact sensor opens by exiting when alarm=off and
+ *							eliminate read of old events that is no longer needed or used
  *	Jan 04, 2018 v1.7.3  After having to issue 1.7.2 and 1.7.1, added optional user supplied override name field
  *							Hopefully ends this mishagas
  *							Simplify and slim down the error logic code by using trim() and non null start field
@@ -252,7 +259,6 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		if (thesimcontact.typeName.matches("(.*)(?i)keypad(.*)"))
 			{
-			error_data=fix_error_data(error_data)
 			error_data+="Device: ${thesimcontact.displayName} is not a valid simulated contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
@@ -317,6 +323,9 @@ def iscontactUnique()
 //		log.debug "child app id: ${child.getId()} ${child.getLabel()}"	
 //		log.debug "child contact Id: ${child.thecontact.getId()}"	
 		def childLabel = child.getLabel()
+		if (child.getName()=="SHM Delay User")	
+			{}
+		else
 		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
 			{}
 		else
@@ -336,6 +345,9 @@ def issimcontactUnique()
 	children.each
 		{ child ->
 		def childLabel = child.getLabel()
+		if (child.getName()=="SHM Delay User")	
+			{}
+		else
 		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
 			{}
 		else
@@ -378,12 +390,24 @@ def pageTwo()
 				}
 			input "theentrydelay", "number", required: true, range: "0..90", defaultValue: 30,
 				title: "Alarm entry delay time in seconds from 0 to 90"
-			input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
-				title: "When arming in away mode set an exit delay time in seconds from 0 to 90. When using lock-manager app's exit delay, set to 0"
+			if (parent.globalKeypadControl)
+				{
+				input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
+					title: "When arming in away mode without the keypad, set a simulated exit delay time in seconds from 0 to 90."
+				paragraph "When arming in away mode with a keypad the true exit delay is ${parent?.globalKeypadExitDelay} seconds."
+				}
+			else
+				input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
+					title: "When arming in away mode set an exit delay time in seconds from 0 to 90. When using lock-manager app's exit delay, set to 0"
 			input "themotiondelay", "number", required: true, range: "0..10", defaultValue: 0,
 				title: "When arming in away mode optional motion sensor entry delay time in seconds from 0 to 10, default:0. Usually not needed. Fixes a motion sensor reacting to door movement before contact sensor registers as open. Only when needed, suggested initial value is 5."
-			input "thekeypad", "capability.button", required: false, multiple: true,
-				title: "Zero or more Optional Keypads: sounds entry delay tone "
+			if (parent.globalKeypadControl)
+				paragraph "All keypads defined in parent module sound delay tones when supported by device"
+			else
+				{
+				input "thekeypad", "capability.button", required: false, multiple: true,
+					title: "Zero or more Optional Keypads: sounds entry delay tone "
+				}	
 			input "thesiren", "capability.alarm", required: false, multiple: true,
 				title: "Zero or more Optional Sirens to Beep on entry delay"
 			}
@@ -519,9 +543,12 @@ def initialize()
 
 def childalarmStatusHandler(evt)
 	{
+	if (parent.globalDisable)
+		return false
 	def theAlarm = evt.value
 	def delaydata=evt?.data
 //	log.debug "delaydata ${delaydata}"
+//	log.debug "changed ${evt.isStateChange()}"
 //	log.debug "alarm state changed stuff ${evt.value} ${evt?.description} ${evt?.name} ${evt.date.time} ${evt?.data} ${delaydata} "
 	if (delaydata=="shmtruedelay_rearm")	//True entry delay, rearming is ignored here
 		{
@@ -556,7 +583,11 @@ def childalarmStatusHandler(evt)
 		if (modefix?.getInstallationState() == 'COMPLETE') 
 			{
 //			log.debug "going to modefix alarmstatushandler mode: ${theMode}"
-			theMode=modefix.alarmStatusHandler(evt)
+//			reset the map adding childid telling modefix not to log this to notifications
+			def evtMap = [value: evt.value, source: evt.source, childid: "childid"]
+//			log.debug "${evtMap}"
+			theMode=modefix.alarmStatusHandler(evtMap)
+//			theMode=modefix.alarmStatusHandler(evt)		//deprecated Mar 11, 2018
 			log.debug "returned from modefix alarmstatushandler mode: ${theMode}"
 			if (!theMode)
 				{theMode = location.currentMode}	
@@ -579,13 +610,28 @@ def childalarmStatusHandler(evt)
 			new_monitor()
 			}
 					
+		if (parent?.globalKeypadControl)
+			{
+/*			if (theAlarm=="stay" && parent?.globalTrueNight && theMode=="Night")
+				{
+				parent?.globalKeypadDevices.each
+					{
+					if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
+						{
+						log.debug "matched1, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
+						it.setArmedNight([delay: 2000])
+						}
+					}
+				}
+*/			}
+		else	
 		if (parent?.globalKeypad && theAlarm=="stay" && parent?.globalTrueNight && theMode=="Night" && thekeypad)
 			{
 			thekeypad.each
 				{
 				if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
 					{
-					log.debug "matched, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
+					log.debug "matched2, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
 					thekeypad.setArmedNight([delay: 2000])
 					}
 				}
@@ -624,6 +670,8 @@ def doNotifications(message)
 
 def motionActiveHandler(evt)
 	{
+	if (parent.globalDisable)
+		return false
 //	A motion sensor shows motion
 	def triggerDevice = evt.getDevice()
 //	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
@@ -648,7 +696,19 @@ def motionActiveHandler(evt)
 //	get status of associated contact sensor
 //	def curr_contact = thecontact.currentContact (will be open or closed) not currently in use
 
-	if (theexitdelay > 0 && currSecs - alarmSecs < theexitdelay)
+	def kSecs=0					//if defined in if statment it is lost after the if
+	def kMap
+	if (parent?.globalKeypadControl)
+		{
+		kMap=parent?.atomicState.kMap
+		kSecs = Math.round(kMap.dtim / 1000)
+		}
+//	if (parent?.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
+	if (parent.globalKeypadControl && theexitdelay > 0 && 
+		alarmSecs - kSecs > 4 && currSecs - alarmSecs < theexitdelay)
+		{return false}
+	else
+	if (!parent?.globalKeypadControl && theexitdelay > 0 && currSecs - alarmSecs < theexitdelay)
 		{return false}
 	else
 		{
@@ -687,17 +747,21 @@ def motionActiveHandler(evt)
 		
 def doorOpensHandler(evt)
 	{
-	def latestDeviceState = thecontact.latestState("closed")
+	if (parent.globalDisable)
+		return false
+/*	def latestDeviceState = thecontact.latestState("closed")  deprecated Jan 08, 2018 data was not used
     	log.debug "latest closed state ${latestDeviceState}"
     	def events=thecontact.events()
 	for(def i = 0; i < events.size(); i++) {
 		def startTime = events[i].date.getTime()
 		log.debug("value: ${events[i].value} startTime: ${startTime}")
 		}
-	
+*/	
 	def alarm = location.currentState("alarmSystemStatus")
-//	log.debug "door opens alarm stuff ${alarm?.description} ${alarm?.name}"
 	def alarmstatus = alarm?.value
+//	log.debug "doorOpensHandler ${alarm} ${alarmstatus}"
+	if (alarmstatus == "off")
+		return false
 	def lastupdt = alarm?.date.time
 	
 	def theMode = location.currentMode
@@ -712,15 +776,32 @@ def doorOpensHandler(evt)
 
 //	alarmstaus values: off, stay, away
 //	check first if this is an exit delay in away mode, if yes monitor the door, else its an alarm
-	if (alarmstatus == "away" && currSecs - alarmSecs < theexitdelay)
+	def kSecs=0					//if defined in if statment it is lost after the if
+	def kMap
+	if (parent?.globalKeypadControl)
+		{
+		kMap=parent?.atomicState.kMap
+		kSecs = Math.round(kMap.dtim / 1000)
+		}
+//	if (alarmstatus == "away" && parent.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
+	if (alarmstatus == "away" && parent.globalKeypadControl && theexitdelay > 0 && 
+		alarmSecs - kSecs > 4 && currSecs - alarmSecs < theexitdelay)
+		{
+		new_monitor()
+		}
+	else
+	if (alarmstatus == "away" && !parent.globalKeypadControl && currSecs - alarmSecs < theexitdelay)
 		{
 		new_monitor()
 		}
 	else	
-	if (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")
+	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night"))
 		{
 		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
-		log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"
+		if (theentrydelay<1)
+			{log.debug "EntryDelay is ${settings.theentrydelay}, instant on for alarm ${aMap.data.lastupdt}"}
+		else
+			{log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"}
 		soundalarm(aMap.data)
 		}
 	else
@@ -756,14 +837,29 @@ def prepare_to_soundalarm(shmtruedelay)
 
 	log.debug "Prepare to sound alarm entered $shmtruedelay"
 //	When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
-	if (settings.thekeypad)
+	if (parent?.globalKeypadControl)
 		{
-		if (shmtruedelay)
-			{thekeypad.setEntryDelay(theentrydelay, [delay: 2000])}
-		else
-			{thekeypad.setEntryDelay(theentrydelay)}
+		parent.globalKeypadDevices.each()
+			{
+			if (it.hasCommand("setEntryDelay"))
+				{
+				if (shmtruedelay)
+					{it.setEntryDelay(theentrydelay, [delay: 2000])}
+				else
+					{it.setEntryDelay(theentrydelay)}
+				}
+			}
+		}	
+	else
+		{
+		if (settings.thekeypad)
+			{
+			if (shmtruedelay)
+				{thekeypad.setEntryDelay(theentrydelay, [delay: 2000])}
+			else
+				{thekeypad.setEntryDelay(theentrydelay)}
+			}
 		}
-
 //		when siren is defined: wait 2 seconds allowing people to get through door, then blast a siren warning beep
 //		Aug 31, 2017 add simulated beep when no beep command
 	if (settings.thesiren)
@@ -909,6 +1005,8 @@ def countopenContacts() {
 
 def contactClosedHandler(evt) 
 	{
+	if (parent.globalDisable)
+		return false
 	log.debug "contactClosedHandler called: $evt.value"
 	if (countopenContacts()==0)
 		killit()
