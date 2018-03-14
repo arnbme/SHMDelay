@@ -92,6 +92,12 @@ def pageOne()
 				input "thepinroutine", "enum", options: actions, required: true, 
 					title: "Pin executes this Smart Home Monitor Routine"
 				}	
+			else
+			if (thepinusage == "Piston")
+				{
+				input "thepinpiston", "text", required: true, 
+					title: "Pin executes this WebCore Piston", description: "Copy/Paste External URL"
+				}	
 			input "themaxcycles", "number", required: false, defaultValue: 0, submitOnChange: true,
 				title: "Maximum times pin may be used, unlimited when zero"
 			if (themaxcycles > 0)
@@ -329,7 +335,7 @@ def pageThree(error_data)
 					paragraph "The pin executes Routine: $thepinroutine"
 					break
 				case "Piston":
-					paragraph "The pin executes Piston: Future Enhancement"
+					paragraph "The pin executes WebCore Piston: $thepinpiston"
 					break
 				default:
 					paragraph "Pin usage not set, Person assumed"

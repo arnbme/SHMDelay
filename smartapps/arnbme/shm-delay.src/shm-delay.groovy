@@ -531,14 +531,18 @@ def keypadCodeHandler(evt)
 						location.helloHome?.execute(it.thepinroutine)
 						break
 					case 'Piston':
-/*	
-						include 'asynchttp_v1'
-						def initialize() {
-							def params = [
-								uri:  "graph.api.smartthings.com/api/${it.token}/${it.secretkey}/graph.api.smartthings.com/api/$pistonid"
-								contentType: 'application/xml']
-						asynchttp_v1.get('getResponseHandler', params, data)
-*/    					break
+						try {
+							include 'asynchttp_v1'
+							def params = [uri: it.thepinpiston]
+//							def params = [uri: "https://www.google.com"]		//use to test
+							asynchttp_v1.get('getResponseHandler', params)
+							error_message = keypad.displayName + " Piston executed with pin for " + it.theusername
+							}
+						catch (e)
+							{
+							error_message = keypad.displayName + " Piston Failed with pin for " + it.theusername + " " + e
+							}    					
+						break
 					default:
 						userName=it.theusername	
 						break
@@ -713,14 +717,9 @@ def alarmStatusHandler(event) 					//here just incase need to reuse currently di
 		}
 	}
 
+//	Process response from async execution of WebCore Piston
 def getResponseHandler(response, data)
 	{
-//	Process response from async execution of WebCore Piston
-    if(response.getStatus() == 200)
-		log("Response received from LFIX in the getReponseHandler.", "DEBUG")
-	else 
-		{
-		log("LIFX failed to update the group. LIFX returned ${response.getStatus()}.", "ERROR")
-		log("Error = ${response.getErrorData()}", "ERROR")
-	    }
+    if(response.getStatus() != 200)
+    	sendNotificationEvent("SHM Delay Piston HTTP Error = ${response.getStatus()}")
 	}	
