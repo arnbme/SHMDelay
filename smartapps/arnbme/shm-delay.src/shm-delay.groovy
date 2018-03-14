@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Mar 14, 2018 v2.0.0  add logic that executes a Routine for a pin 
  *	Mar 13, 2018 v2.0.0  add logic for weekday, time and dates just added to SHM Delay User 
  *  Mar 02, 2018 v2.0.0  add support for users and total keypad control
  *							Use mode vs alarmstatus to set Keypad mode lights, requires modefix be live
@@ -526,9 +527,18 @@ def keypadCodeHandler(evt)
 					case 'Ignore':
 						break
 					case 'Routine':
+						error_message = keypad.displayName + " executed routine " + it.thepinroutine + " with pin for " + it.theusername
+						location.helloHome?.execute(it.thepinroutine)
 						break
 					case 'Piston':
-						break
+/*	
+						include 'asynchttp_v1'
+						def initialize() {
+							def params = [
+								uri:  "graph.api.smartthings.com/api/${it.token}/${it.secretkey}/graph.api.smartthings.com/api/$pistonid"
+								contentType: 'application/xml']
+						asynchttp_v1.get('getResponseHandler', params, data)
+*/    					break
 					default:
 						userName=it.theusername	
 						break
@@ -563,7 +573,7 @@ def keypadCodeHandler(evt)
 		return;
   		}
 
-//	pin found but it has errors  		
+//	pin found but it has errors or created a message  		
 	if (error_message!="")
 		{
 		sendNotificationEvent(error_message)
@@ -702,3 +712,15 @@ def alarmStatusHandler(event) 					//here just incase need to reuse currently di
 			}
 		}
 	}
+
+def getResponseHandler(response, data)
+	{
+//	Process response from async execution of WebCore Piston
+    if(response.getStatus() == 200)
+		log("Response received from LFIX in the getReponseHandler.", "DEBUG")
+	else 
+		{
+		log("LIFX failed to update the group. LIFX returned ${response.getStatus()}.", "ERROR")
+		log("Error = ${response.getErrorData()}", "ERROR")
+	    }
+	}	

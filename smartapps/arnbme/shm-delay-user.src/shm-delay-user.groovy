@@ -84,7 +84,14 @@ def pageOne()
 			input "theusername", "text", required: true, submitOnChange: true,
 				title: "User Name"
 			input "thepinusage", "enum", options:["User", "Ignore", "Disabled", "Routine", "Piston"], 
-				required: true, title: "Pin Usage"
+				required: true, title: "Pin Usage", submitOnChange: true
+			if (thepinusage == "Routine")
+				{
+				def actions = location.helloHome?.getPhrases()*.label
+				actions?.sort()
+				input "thepinroutine", "enum", options: actions, required: true, 
+					title: "Pin executes this Smart Home Monitor Routine"
+				}	
 			input "themaxcycles", "number", required: false, defaultValue: 0, submitOnChange: true,
 				title: "Maximum times pin may be used, unlimited when zero"
 			if (themaxcycles > 0)
@@ -319,7 +326,7 @@ def pageThree(error_data)
 					paragraph "The pin is Disabled, processed as bad pin"
 					break
 				case "Routine":
-					paragraph "The pin executes Routine: Future Enhancement"
+					paragraph "The pin executes Routine: $thepinroutine"
 					break
 				case "Piston":
 					paragraph "The pin executes Piston: Future Enhancement"
