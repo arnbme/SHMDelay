@@ -151,6 +151,10 @@ def main()
 			required: false,
 			page: "createSimPage")
 			}
+		section
+			{
+			paragraph "SHM Delay Version 2.0.0 Beta"
+			}
 		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
 	}
