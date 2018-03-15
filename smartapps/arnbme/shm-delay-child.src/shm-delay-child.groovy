@@ -188,7 +188,7 @@ def pageOne()
 			{
 			section([mobileOnly:true]) 
 				{
-				label title: "Profile name", defaultValue: "Profile: ${thecontact.displayName}", required: false
+				label title: "Profile name", defaultValue: "Profile: Delay: ${thecontact.displayName}", required: false
 				}
 
 			}	
