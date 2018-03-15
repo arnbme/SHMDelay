@@ -481,7 +481,7 @@ def keypadCodeHandler(evt)
 //				verify the dates
 				if (it.pinStartDt>"" && it.pinEndDt>"")
 					{
-					if (num_dtstart > nowymd || numdtend < nowymd)
+					if (num_dtstart > nowymd || num_dtend < nowymd)
 						error_message = keypad.displayName + " dates out of range with pin for " + it.theusername
 					}
 				else

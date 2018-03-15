@@ -218,6 +218,7 @@ def pageTwo()
 	{
 	dynamicPage(name: 'pageTwo', title: 'Scheduling Rules, all fields are optional') 
 		{
+		def numdt=""
 		section
 			{
 			if (state.error_data)
@@ -230,9 +231,28 @@ def pageTwo()
 				required: false, multiple: true, title: 'Select days pin may be used'
 			input(name: 'pinStartTime', type: 'time', title: 'Start Time', required: false)
 			input(name: 'pinEndTime', type: 'time', title: 'End Time', required: false)
-			input name: "pinStartDt", type: "text", title: "Start Date", required: false,
+			if (pinStartDt>"")
+				{
+				numdt=dtEdit(pinStartDt)
+				if (state.dtedit)
+					{
+					numdt = "please correct"
+					state.remove("dtedit")
+					}
+				}
+			input name: "pinStartDt", type: "text", title: "Start Date $numdt", required: false, submitOnChange: true,
 				description: "Mth dd, yy(yy)" 
-			input name: "pinEndDt", type: "text", title: "End Date", required: false,
+			numdt=""
+			if (pinEndDt>"")
+				{
+				numdt=dtEdit(pinEndDt)
+				if (state.dtedit)
+					{
+					numdt = "please correct"
+					state.remove("dtedit")
+					}
+				}
+			input name: "pinEndDt", type: "text", title: "End Date $numdt", required: false, submitOnChange: true,
 				description: "Mth dd, yy(yy)" 
 			}
 		}
@@ -389,7 +409,7 @@ def pageThree(error_data)
 					}
 				if (pinStartDt>"" && pinEndDt>"")
 					{
-					if (num_dtstart > nowymd || numdtend < nowymd)
+					if (num_dtstart > nowymd || num_dtend < nowymd)
 						dtbetween=false
 					paragraph "Valid Dates: $pinStartDt to $pinEndDt. Currently: $dtbetween" 
 					}
