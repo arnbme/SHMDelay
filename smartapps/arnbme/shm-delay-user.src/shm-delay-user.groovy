@@ -152,6 +152,15 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (unique_result != "")
 			error_data+=unique_result
 		}
+	
+	if (thepinusage == "Piston")
+		{
+		if (!thepinpiston.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+			{
+			error_data += "Please enter a valid Piston URL\n\n"
+			}
+		}	
+		
 	if (error_data!="")
 		{
 		state.error_data=error_data.trim()
