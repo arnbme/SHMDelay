@@ -237,11 +237,12 @@ def pageTwo()
 				if (state.dtedit)
 					{
 					numdt = "please correct"
+//					numdt = state.dtedit
 					state.remove("dtedit")
 					}
 				}
 			input name: "pinStartDt", type: "text", title: "Start Date $numdt", required: false, submitOnChange: true,
-				description: "Mth dd, yy(yy)" 
+				description: "Mth dd, yyyy" 
 			numdt=""
 			if (pinEndDt>"")
 				{
@@ -249,11 +250,12 @@ def pageTwo()
 				if (state.dtedit)
 					{
 					numdt = "please correct"
+//					numdt = state.dtedit
 					state.remove("dtedit")
 					}
 				}
 			input name: "pinEndDt", type: "text", title: "End Date $numdt", required: false, submitOnChange: true,
-				description: "Mth dd, yy(yy)" 
+				description: "Mth dd, yyyy" 
 			}
 		}
 	}
@@ -291,12 +293,11 @@ def pageTwoVerify() 					//edit schedule data, go to pageThree when valid
 		}
 
 //	verify optional time data stored by system as 2018-03-13T11:30:00.000-0400
-//	use only the time portion HHMM when comparing and testing for when pin is entered in SHM Delay
-//	here the entire datetime sting can be used to verify end time is greater than start time
+//	use only the time portion HH:MM when comparing and testing for when pin is entered in SHM Delay
 	if (pinStartTime > "" && pinEndTime >"")
 		{
 //		log.debug "times ${pinStartTime} ${pinEndTime}"
-		if (pinEndTime <= pinStartTime)
+		if (pinEndTime.substring(11,16) <= pinStartTime.substring(11,16))
 			error_data += "End Time must be greater than Start Time\n\n"
 		}
 	else
@@ -317,10 +318,10 @@ def pageTwoVerify() 					//edit schedule data, go to pageThree when valid
 	}
 
 //	verify and format start and end date standard format is Jan 1, 2018
-//	but logic allows for January 1 18 or Jan. 1 18
+//	but logic allows for January 1 18 or Jan. 1 18 that create (seems a bit fickle) 
 def dtEdit(dt)				
 	{
-	def input_mask = "MMM dd yy"		//also allows a 4 digit year with SimpleDateFormat
+	def input_mask = "MMM dd yy"		//also allows a 4 digit year with SimpleDateFormat, usually fixes 2 digit year
 	def numdt_mask = "yyyyMMdd"			//result date
 	def date
 	def numdt
@@ -335,7 +336,8 @@ def dtEdit(dt)
 		} 
 	catch (pe)
 		{
-		state.dtedit = "${pe}\n\n"		//date is invalid
+		
+		state.dtedit = "$date  ${pe}\n\n"		//date is invalid
 		return false;
 		}
 	}	
