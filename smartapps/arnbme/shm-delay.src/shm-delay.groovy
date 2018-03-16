@@ -452,11 +452,10 @@ def keypadCodeHandler(evt)
 		    		{atomicState."${atomicUseId}" = atomicState."${atomicUseId}" + 1}
 		    	if (atomicState."${atomicUseId}" > it.themaxcycles)
 		    		{
-					keypad.sendInvalidKeycodeResponse()
-					return false
+					error_message = keypad.displayName + " Burned pin entered for " + it.theusername
+					return false		// end the **find** loop
 	    			}
 	    		}	
-			keypad.acknowledgeArmRequest(modeEntered)
 			badPin=false
 //			log.debug "matched pin ${it.theuserpin} $it.pinScheduled"
 
@@ -521,10 +520,10 @@ def keypadCodeHandler(evt)
 						userName=it.theusername	
 						break
 					case 'Disabled':
-						badPin=true
 						error_message = keypad.displayName + " disabled pin entered for " + it.theusername
 						break
 					case 'Ignore':
+						error_message = keypad.displayName + " ignored pin entered for " + it.theusername
 						break
 					case 'Routine':
 						error_message = keypad.displayName + " executed routine " + it.thepinroutine + " with pin for " + it.theusername
@@ -554,40 +553,49 @@ def keypadCodeHandler(evt)
 			{return false}			//this continues the ***find*** loop, does not end function
 		}
 
-//	Now done with editing the pin entered on the keypad		
+//	Now done with find loop and editing the pin entered on the keypad  		
 
+	if (error_message!="")									// put out any messages to notification log
+		{
+		sendNotificationEvent(error_message)
+		}
+		
 //	Was pin not found
+/*  in theory acknowledgeArmRequest(4) and sendInvalidKeycodeResponse() send same command
+	but not working that way. Look at this when I get some time
+*/	
+
 	if (badPin)
 		{
 		if (globalBadPins==1)
 			{
-			keypad.sendInvalidKeycodeResponse()
+			keypad.acknowledgeArmRequest(4)			//sounds a very long beep
 			}
 		else
 			{
-			if (atomicState.badpins < 0)		//initialize if never set
+			if (atomicState.badpins < 0)			//initialize if never set
 				{atomicState.badpins=0}
 	    	atomicState.badpins = atomicState.badpins + 1
 	    	if (atomicState.badpins >= globalBadpins)
 	    		{
-				keypad.sendInvalidKeycodeResponse()
+				keypad.acknowledgeArmRequest(4)		//sounds a very long beep
 				atomicState.badpins = 0
     			}
+			else
+				keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
     		}	
 		return;
   		}
 
-//	pin found but it has errors or created a message  		
-	if (error_message!="")
+		
+//	was this pin associated with a person
+	if (!userName)									//if not a user pin, no further processing
 		{
-		sendNotificationEvent(error_message)
+		keypad.sendInvalidKeycodeResponse()			//sounds a medium duration beep
 		return
 		}
 		
-//	was this pin associated with a person
-	if (!userName)				//if not a user pin, no further processing
-		return
-
+	keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 	atomicState.badpins=0		//reset badpin count
 	def armModes=['Home','Stay','Night','Away']
