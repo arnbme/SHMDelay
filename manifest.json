@@ -5,7 +5,7 @@
     "repoBranch": "beta",
     "name": "Smarthome Entry and Exit Delays Verson 2.0 Beta",
     "author": "Arn B",
-    "description": Provides the Entry and Exit Delay options currently missing in Smart Home Monitor (SHM), allowing for some time on entry to disarm the system, and time to exit the facility without triggering an alarm.",
+    "description": "Provides the Entry and Exit Delay options currently missing in Smart Home Monitor (SHM), allowing for some time on entry to disarm the system, and time to exit the facility without triggering an alarm.",
     "category": "Community Created Smartapps",
     "bannerUrl": "https://www.arnb.org/IMAGES/hourglass.png",
     "forumUrl": "https://community.smartthings.com/t/beta-shm-delay-version-2-0/121800/",
