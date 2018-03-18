@@ -654,6 +654,7 @@ def keypadModeHandler(evt)						//react to all SHM Mode changes, attempt to avoi
 	def kMap=atomicState.kMap
 	def kDtim=now()
 	def kMode
+	log.debug "keypadModeHandler entered ${evt} ${evt.value} ${kMap}"
 	if (kMap)
 		{
 		kDtim=kMap.dtim
@@ -661,13 +662,15 @@ def keypadModeHandler(evt)						//react to all SHM Mode changes, attempt to avoi
 //		log.debug "keypadModeHandler ${evt} ${theMode} ${kMode}"
 		if (theMode==kMode)
 			{
-//			log.debug "Keypad lights are OK, no messages sent"
+			log.debug "Keypad lights are OK, no messages sent"
 			return false
 			}
 		}
+
 //	Reset the keyboard mode, keep time when atomicState previously set, time is last time real keyboard set mode		
 	kMap = [mode: theMode, dtim: kDtim]			//save mode dtim any keypad armed/disarmed the system for use with
 	atomicState.kMap=kMap						//SHM Delay Child DoorOpens and MotionSensor active functions
+	log.debug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
 	keypadLightHandler(evt)
 	}
 	
@@ -676,7 +679,7 @@ def keypadModeHandler(evt)						//react to all SHM Mode changes, attempt to avoi
 def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
-//	log.debug "keypadLightHandler ${evt} ${evt.value}"
+	log.debug "keypadLightHandler entered ${evt} ${theMode}"
 	globalKeypadDevices.each
 		{ keypad ->
 		if (theMode == 'Home')					//Alarm is off
