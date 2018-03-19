@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Mar 18, 2018 v0.0.0  Add Panic pin usage type 
  *	Mar 01, 2018 v0.0.0  Create 
  *
  */
@@ -83,7 +84,7 @@ def pageOne()
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
 				title: "User Name"
-			input "thepinusage", "enum", options:["User", "Ignore", "Disabled", "Routine", "Piston"], 
+			input "thepinusage", "enum", options:["User", "Ignore", "Disabled", "Routine", "Piston", "Panic"], 
 				required: true, title: "Pin Usage", submitOnChange: true
 			if (thepinusage == "Routine")
 				{
@@ -367,6 +368,9 @@ def pageThree(error_data)
 					break
 				case "Piston":
 					paragraph "The pin executes WebCore Piston: $thepinpiston"
+					break
+				case "Panic":
+					paragraph "Panic pin triggers the SmartThings intrusion alarm"
 					break
 				default:
 					paragraph "Pin usage not set, Person assumed"

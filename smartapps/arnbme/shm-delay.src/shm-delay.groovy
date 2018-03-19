@@ -206,10 +206,12 @@ def globalsPage()
 					title: "Keypad Night (Xfinity/Centralite only) executes Routine. Default: Good Night!"
 				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
 					title: "Keypad Away/On executes Routine. Default: Goodbye!"
-				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
-					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
-				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
-					title: "(Future enhancement) Create intrusion alert after how many invalid pin code entries. 0 = disabled, range: 1-10, default: 4"
+				input "globalPanic", "bool", required: true, defaultValue: true,
+					title: "Panic Key is Monitored. No Panic key? Set this flag on, add a User Panic Pin. Default: On/True"
+//				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
+//					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
+//				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
+//					title: "(Future enhancement) Create intrusion alert after how many invalid pin code entries. 0 = disabled, range: 1-10, default: 4"
 				}	
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
 				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
@@ -354,11 +356,13 @@ def initialize()
 	{
 	if (globalKeypadControl && !globalDisable)
 		{
-//		log.debug ("subscribing to keypad code entry events for ${globalKeypadDevices}" )
 		subscribe(globalKeypadDevices, 'codeEntered',  keypadCodeHandler)
-//		log.debug "sucscribing to location mode handler"
 		subscribe (location, "mode", keypadModeHandler)
 //		subscribe(location, "alarmSystemStatus", alarmStatusHandler)
+		if (globalPanic)
+			{
+		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
+		    }
 		}
 /*	def armwk='away'		//this is all stuff used for testing
 	def kMap = [mode: armwk, dtim: now()]
@@ -529,6 +533,17 @@ def keypadCodeHandler(evt)
 						error_message = keypad.displayName + " executed routine " + it.thepinroutine + " with pin for " + it.theusername
 						location.helloHome?.execute(it.thepinroutine)
 						break
+					case 'Panic':
+						if (globalPanic)
+							{
+							error_message = keypad.displayName + " Panic entered with pin for " + it.theusername
+							keypadPanicHandler(evt)
+							}
+						else	
+							{
+							error_message = keypad.displayName + " Panic entered but globalPanic flag disabled with pin for " + it.theusername
+							}
+						break
 					case 'Piston':
 						try {
 							include 'asynchttp_v1'
@@ -567,6 +582,9 @@ def keypadCodeHandler(evt)
 
 	if (badPin)
 		{
+		keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
+/*
+**		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
 			{
 			keypad.acknowledgeArmRequest(4)			//sounds a very long beep
@@ -584,8 +602,8 @@ def keypadCodeHandler(evt)
 			else
 				keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
     		}	
-		return;
-  		}
+*/		return;
+ 		}
 
 		
 //	was this pin associated with a person
@@ -701,6 +719,106 @@ def keypadLightHandler(evt)						//set the Keypad lights
 		}
 	}	
 
+def keypadPanicHandler(evt)
+	{
+	if (!globalKeypadControl || globalDisable || !globalPanic)
+		{return false}			//just in case
+	def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
+	def alarmstatus = alarm.value
+	def keypad=evt.getDevice()		//set the keypad name
+	def panic_map=[data:[cycles:5, keypad: keypad.name]]
+	log.debug "the initial panic map ${panic_map} ${keypad.name}" 
+	if (alarmstatus == "off")
+		{
+		location.helloHome?.execute(globalAway)	//set alarm on
+		runIn(1, keypadPanicExecute,panic_map)
+		}
+	else
+		{
+		keypadPanicExecute(panic_map.data)		//Panic routine only uses the device name, should be ok
+		}
+	}	
+
+def keypadPanicExecute(panic_map)						//Panic mode requested
+/*	When system is armed: Open simulated sensor
+**	When system is not armed: Wait for it to arm, open simulated sensor
+**	Limit time to 5 cycles around 9 seconds of waiting maximum
+*/		
+	{
+	def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
+	def alarmstatus = alarm.value
+	if (alarmstatus == "off")
+		{
+		log.debug "keypadPanicExecute entered $panic_map"
+		if (panic_map.cycles > 1)
+			{
+			def cycles=panic_map.cycles-1
+			def keypad=panic_map.keypad
+			def newpanic_map=[data:[cycles: cycles, keypad: keypad]]
+			runIn(2, keypadPanicExecute,newpanic_map)
+			return false
+			}
+		}
+
+//	prepare panic message, issued later		
+	def message = "PANIC issued by $panic_map.keypad "
+	if (global911 > ""  || globalPolice)
+		{
+		def msg_emergency
+		if (global911 > "")
+			{
+			msg_emergency= ", call Police at ${global911}"
+			}
+		if (globalPolice)
+			{
+			if (msg_emergency==null)
+				{
+				msg_emergency= ", call Police at ${globalPolice}"
+				}
+			else
+				{
+				msg_emergency+= " or ${globalPolice}"
+				}
+			}
+		message+=msg_emergency
+		}
+	else
+		{
+		message+=" by (SHM Delay App)"
+		}
+		
+//	find a delay profile for use with panic
+	log.debug "keypadPanicExecute searching for Delay profile"
+
+	def childApps = getChildApps()		//gets all completed child apps
+	def delayApp  = false	
+	childApps.each 
+		{
+		if (!delayApp && it.getName()=="SHM Delay Child")	
+			{
+			log.debug "keypadPanicExecute found Delay profile"
+			delayApp=true		
+			if (alarmstatus == "off")
+				{
+				message+=" System did not arm in 10 seconds, unable to issue Panic intrusion"
+				it.doNotifications(message)		//issue messages as per child profile
+				}
+			else	
+				{
+				it.doNotifications(message)		//issue messages as per child profile
+				it.thesimcontact.close()		//trigger an intrusion		
+				it.thesimcontact.open()
+				it.thesimcontact.close([delay: 4000])
+				}
+			}	
+		}
+	if (!delayApp)
+		{
+		message +=' Unable to create instrusion, no delay profile found'
+		sendNotificationEvent(message)				//log to notification we are toast
+		}
+	}
+	
 //	this routine is not used
 def alarmStatusHandler(event) 					//here just incase need to reuse currently disabled, no subscription								
 	{
