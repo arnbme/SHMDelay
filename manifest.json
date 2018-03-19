@@ -2,68 +2,6 @@
     "namespace": "arnbme",
     "repoOwner": "arnbme",
     "repoName": "SHMDelay",
-    "repoBranch": "beta",
-    "name": "Smarthome Entry and Exit Delays Verson 2.0 Beta",
-    "author": "Arn B",
-    "description": "Provides the Entry and Exit Delay options currently missing in Smart Home Monitor (SHM), allowing for some time on entry to disarm the system, and time to exit the facility without triggering an alarm.",
-    "category": "Community Created Smartapps",
-    "bannerUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-    "forumUrl": "https://community.smartthings.com/t/beta-shm-delay-version-2-0/121800/",
-    "docUrl": "https://community.smartthings.com/t/beta-shm-delay-version-2-0/121800/",
-    "releaseType": "beta",
-    "keywords": ["Entry Delay", "Exit Delay", "SmartHome", "SHM", "keypad"],
-    "notes": "Nothing to show here (yet)",
-    "smartApps": 
-    	{
-        "parent": 
-        	{
-            "name": "SHM Delay",
-            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-            "published": true,
-            "oAuth": false,
-            "version": "2.0.0",
-            "appSettings": {},
-            "appUrl": "smartapps/arnbme/shm-delay.src/shm-delay.groovy"
-        	},
-        "children": 
-        	[
-        	{
-            "name": "SHM Delay Child ",
-            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-            "published": false,
-            "oAuth": false,
-            "version": "2.0.0",
-            "appSettings": {},
-            "appUrl": "smartapps/arnbme/shm-delay-child.src/shm-delay-child.groovy",
-            "optional": false
-        	},
-        	{
-            "name": "SHM Delay ModeFix",
-            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-            "published": false,
-            "oAuth": false,
-            "version": "0.1.2",
-            "appSettings": {},
-            "appUrl": "smartapps/arnbme/shm-delay-modefix.src/shm-delay-modefix.groovy",
-            "optional": false
-        	},
-        	{
-            "name": "SHM Delay Users",
-            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-            "published": false,
-            "oAuth": false,
-            "version": "0.0.0",
-            "appSettings": {},
-            "appUrl": "smartapps/arnbme/shm-delay-user.src/shm-delay-user.groovy",
-            "optional": false
-        	}
-        	]
-    	}
-}
-{
-    "namespace": "arnbme",
-    "repoOwner": "arnbme",
-    "repoName": "SHMDelay",
     "repoBranch": "master",
     "name": "Smarthome Entry and Exit Delays",
     "author": "Arn B",
