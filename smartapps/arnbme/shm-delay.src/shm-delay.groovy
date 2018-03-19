@@ -537,7 +537,8 @@ def keypadCodeHandler(evt)
 						if (globalPanic)
 							{
 							error_message = keypad.displayName + " Panic entered with pin for " + it.theusername
-							keypadPanicHandler(evt)
+							keypadPanicHandler(evt)					
+//							panicContactOpen()	//unable to get this working use klunky method above
 							}
 						else	
 							{
@@ -792,7 +793,7 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 
 	def childApps = getChildApps()		//gets all completed child apps
 	def delayApp  = false	
-	childApps.each 
+	childApps.find 						//change from each to find to speed up the search
 		{
 		if (!delayApp && it.getName()=="SHM Delay Child")	
 			{
@@ -810,7 +811,10 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 				it.thesimcontact.open()
 				it.thesimcontact.close([delay: 4000])
 				}
-			}	
+			return true							//this ends the **find** loop does not return to system
+			}
+		else	
+			{return false}						//this continues the **find** loop does not return
 		}
 	if (!delayApp)
 		{
@@ -845,6 +849,21 @@ def alarmStatusHandler(event) 					//here just incase need to reuse currently di
 			}
 		}
 	}
+/*
+attempted to use this to trigger panic but it does not fire the subscribed event
+and may create chaos when multiple keypad devices are defined
+def panicContactOpen() {
+	log.debug "Enter panicContactOpen $globalKeypadDevices $globalKeypadDevices(0)"
+    sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true, Device: globalKeypadDevices)
+    runIn(3, "panicContactClose")
+}
+
+def panicContactClose()
+	{
+	log.debug "Enter panicContactClose"
+	sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true, Device: globalKeypadDevices)
+	}
+*/
 
 //	Process response from async execution of WebCore Piston
 def getResponseHandler(response, data)
