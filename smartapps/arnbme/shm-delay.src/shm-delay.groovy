@@ -13,7 +13,9 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *
+ * 
+ *  Mar 20, 2018 v2.0.0  add reverse mode fix, user defined modes, set Alarm State when mode changes 
+ *  Mar 18, 2018 v2.0.0  add Panic option
  *	Mar 14, 2018 v2.0.0  add logic that executes a Routine for a pin 
  *	Mar 13, 2018 v2.0.0  add logic for weekday, time and dates just added to SHM Delay User 
  *  Mar 02, 2018 v2.0.0  add support for users and total keypad control
@@ -358,7 +360,6 @@ def initialize()
 		{
 		subscribe(globalKeypadDevices, 'codeEntered',  keypadCodeHandler)
 		subscribe (location, "mode", keypadModeHandler)
-//		subscribe(location, "alarmSystemStatus", alarmStatusHandler)
 		if (globalPanic)
 			{
 		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
@@ -665,35 +666,101 @@ def execRoutine(aMap)
 	atomicState.kMap=kMap					//SHM Delay Child DoorOpens and MotionSensor active functions
 	}
 
-def keypadModeHandler(evt)						//react to all SHM Mode changes, attempt to avoid keypad trafic
+def keypadModeHandler(evt)		//react to all SHM Mode changes
 	{
-	if (!globalKeypadControl || globalDisable)
+	if (globalDisable)
 		{return false}			//just in case
-	def	theMode=evt.value		
-	def kMap=atomicState.kMap
-	def kDtim=now()
-	def kMode
-	log.debug "keypadModeHandler entered ${evt} ${evt.value} ${kMap}"
-	if (kMap)
+	def	theMode=evt.value		//Used to set the keypad button/icon lights		
+	def theStatus=false			//used to set SHM Alarm State
+	if (globalFixMode)			//if global fix mode use data allowing for user defined modes
 		{
-		kDtim=kMap.dtim
-		kMode=kMap.mode
-//		log.debug "keypadModeHandler ${evt} ${theMode} ${kMode}"
-		if (theMode==kMode)
+		def it=findChildAppByName('SHM Delay ModeFix')
+		if (it?.getInstallationState()!='COMPLETE')
+			log.debug "keypadModeHandler: Modefix is not fully installed, please adjust data then save"
+		else
+		if (it.offDefault == theMode)
 			{
-			log.debug "Keypad lights are OK, no messages sent"
-			return false
+			theStatus='off'
+			theMode='Home'
 			}
+		else
+		if (it.awayDefault == theMode)
+			{
+			theStatus='away'
+			theMode='Away'
+			}
+		else
+		if (it.stayDefault == theMode)
+			{
+			theStatus='stay'
+			theMode='Night'
+			}
+		else 
+		if (it.offModes.contains(theMode))
+			{
+			theStatus='off'
+			theMode='Home'
+			}
+		else 
+		if (it.awayModes.contains(theMode))
+			{
+			theStatus='away'
+			theMode='Away'
+			}
+		else 
+		if (it.stayModes.contains(theMode))
+			{
+			theStatus='stay'
+			theMode='Night'
+			}
+		log.debug "keypadModeHandler input: ${evt.value} output: $theMode"
 		}
 
-//	Reset the keyboard mode, keep time when atomicState previously set, time is last time real keyboard set mode		
-	kMap = [mode: theMode, dtim: kDtim]			//save mode dtim any keypad armed/disarmed the system for use with
-	atomicState.kMap=kMap						//SHM Delay Child DoorOpens and MotionSensor active functions
-	log.debug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
-	keypadLightHandler(evt)
+	if (globalKeypadControl)			//when we are controlling keypads, set lights
+		{
+		if (theMode=='Home' || theMode=='Away' || theMode=='Night' || theMode=='Stay')
+			{
+			def kMap=atomicState.kMap
+			def kDtim=now()
+			def kMode
+			log.debug "keypadModeHandler entered ${evt} ${evt.value} $themode ${kMap}"
+			def setKeypadLights=true
+			if (kMap)
+				{
+				kDtim=kMap.dtim
+				kMode=kMap.mode
+//				log.debug "keypadModeHandler ${evt} ${theMode} ${kMode}"
+				if (theMode==kMode)
+					{
+					log.debug "Keypad lights are OK, no messages sent"
+					setKeypadLights=false
+					}
+				}
+
+//			Reset the keypad lights and mode, keep time when atomicState previously set, time is last time real keypad set mode		
+			if (setKeypadLights)
+				{
+				kMap = [mode: theMode, dtim: kDtim]			//save mode dtim any keypad armed/disarmed the system for use with
+				atomicState.kMap=kMap						//SHM Delay Child DoorOpens and MotionSensor active functions
+				log.debug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
+				keypadLightHandler(evt)
+				}
+			}
+		else
+			{
+			log.debug "keypadModeHandler mode $theMode cannot be used to set the keypad lights"
+			}
+		}	
+		
+//	When SHM alarm state does not match the requested SHM alarm state, change it
+	if (theStatus)
+		{
+		def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
+		def alarmstatus = alarm.value
+		if (alarmstatus != theStatus)
+			setSHM(theStatus)
+		}	
 	}
-	
-	
 
 def keypadLightHandler(evt)						//set the Keypad lights
 	{
@@ -731,7 +798,8 @@ def keypadPanicHandler(evt)
 	log.debug "the initial panic map ${panic_map} ${keypad.name}" 
 	if (alarmstatus == "off")
 		{
-		location.helloHome?.execute(globalAway)	//set alarm on
+//		location.helloHome?.execute(globalAway)	//set alarm on deprecated Mar 20, 2018
+		setSHM('away')							//set alarm on in the fastest possible way I know
 		runIn(1, keypadPanicExecute,panic_map)
 		}
 	else
@@ -822,38 +890,24 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 		sendNotificationEvent(message)				//log to notification we are toast
 		}
 	}
-	
-//	this routine is not used
-def alarmStatusHandler(event) 					//here just incase need to reuse currently disabled, no subscription								
+
+//	Directly set the SHM alarm status input must be off, away or stay	
+def setSHM(state)
 	{
-	return false;	
-	if (globalKeypadControl || globalDisable)
-		{return false}			//just in case
-//	Alarm status was changed by something, make all keypads follow
-//	add some code test keypad status: if already properly set before issuing the command skip setting	
-	globalKeypadDevices.each
-		{ keypad ->
-		if (event.value == 'off')
-			{keypad.setDisarmed()}
-		else
-		if (event.value == 'away')
-			{keypad.setArmedAway()}
-		else
-		if (event.value == 'stay')
-			{
-			def theMode=location.currentMode;
-			if (theMode=="Night" && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-				{keypad.setArmedNight()}
-			else
-				{keypad.setArmedStay()}
-			}
-		}
-	}
+	if (state=='off'|state=='away'||state=='stay')
+		{
+		def event = [name:"alarmSystemStatus", value: state, 
+    		displayed: true, description: "System Status is ${state}"]
+    	sendLocationEvent(event)
+    	}
+    }
+
+
 /*
-attempted to use this to trigger panic but it does not fire the subscribed event
+atempted to use this to trigger panic but it does not fire the subscribed event
 and may create chaos when multiple keypad devices are defined
 def panicContactOpen() {
-	log.debug "Enter panicContactOpen $globalKeypadDevices $globalKeypadDevices(0)"
+	log.debug "Enter panicContactOpen $globalKeypadDevices"
     sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true, Device: globalKeypadDevices)
     runIn(3, "panicContactClose")
 }
