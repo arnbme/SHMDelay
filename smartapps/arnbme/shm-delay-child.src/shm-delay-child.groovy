@@ -17,6 +17,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Mar 21	2018 v2.0.0  add optional beep devices when door contact opens.
  *	Mar 04	2018 v2.0.0  Ignore User profiles in function iscontactUnique().
  *							add support for globalDisable flag in first level event processing functions
  *							add logic supporting keypad entry tones and adjust definititions when globalKeypadControl
@@ -406,10 +407,12 @@ def pageTwo()
 			else
 				{
 				input "thekeypad", "capability.button", required: false, multiple: true,
-					title: "Zero or more Optional Keypads: sounds entry delay tone "
+					title: "Sound entry delay tones on these keypads (Optional)"
 				}	
 			input "thesiren", "capability.alarm", required: false, multiple: true,
-				title: "Zero or more Optional Sirens to Beep on entry delay"
+				title: "Beep these devices on entry delay (Optional)"
+			input "thebeepers", "capability.tone", required: false, multiple: true,
+				title: "Beep these devices when real contact sensor opens, and Alarm State is Off (Optional)"
 			}
 		}
 	}	
@@ -436,7 +439,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 				{}
 			else
 				{
-				error_data+="Siren: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens.\n\n"
+				error_data+="Entry Delay Beep Device: ${it.displayName} unable to create a beep with this device. Please remove the device from sirens.\n\n"
 				}	
 			}
 		}	
@@ -730,7 +733,7 @@ def motionActiveHandler(evt)
 //		log.debug "scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
-			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
+			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.c]]
 			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
 			if (themotiondelay > 0)
 				{
@@ -761,7 +764,19 @@ def doorOpensHandler(evt)
 	def alarmstatus = alarm?.value
 //	log.debug "doorOpensHandler ${alarm} ${alarmstatus}"
 	if (alarmstatus == "off")
+		{
+		thebeepers?.each
+			{
+			if (it?.currentValue("armMode")=="exitDelay")		//bypass keypads beeping exit delay tones
+				{
+//				def beepDevice = it?.getDevice()
+//				log.debug "skipped device on exit delay ${beepDevice.displayName} armMode: ${it?.currentValue('armMode')}"
+				}
+			else
+				{it.beep()}
+			}	
 		return false
+		}
 	def lastupdt = alarm?.date.time
 	
 	def theMode = location.currentMode
