@@ -180,18 +180,12 @@ def globalsPage()
 				title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
 			input "globalMultipleMotion", "bool", required: true, defaultValue: false,
 				title: "Allow Multiple Motion Sensors in Delay Profile. Default: Off/False" 
-			if (!globalKeypadControl)
-				{
-				input "globalTrueNight", "bool", required: true, defaultValue: false,
-					title: "True Night Mode: In AlarmState Armed (Stay/Night) trigger immediate intrusion, no entry delay. Default: Off/False"
-				}
 			input "globalFixMode", "bool", required: true, defaultValue: false,
 				title: "Mode Fix: When AlarmState changes, fix Mode when invalid. Default: Off/False"
-			if (!globalKeypadControl)
-				{	
-				input "globalKeypad", "bool", required: true, defaultValue: false,
-					title: "The upgraded Keypad module is installed Default: Off/False"
-				}
+//			input "globalKeypad", "bool", required: true, defaultValue: false,
+//				title: "The upgraded Keypad module is installed Default: Off/False"
+			input "globalTrueNight", "bool", required: true, defaultValue: false, 
+				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
 			if (globalKeypadControl)
 				{
 				def actions = location.helloHome?.getPhrases()*.label
@@ -205,11 +199,11 @@ def globalsPage()
 				input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
 					title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
 				input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Night (Xfinity/Centralite only) executes Routine. Default: Good Night!"
+					title: "Keypad Night executes Routine. Default: Good Night!"
 				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
 					title: "Keypad Away/On executes Routine. Default: Goodbye!"
 				input "globalPanic", "bool", required: true, defaultValue: true,
-					title: "Panic Key is Monitored. No Panic key? Set this flag on, add a User Panic Pin. Default: On/True"
+					title: "Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
 //				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
 //				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
@@ -639,7 +633,7 @@ def execRoutine(aMap)
 	def kMap = [mode: armMode, dtim: now()]	//save mode dtim any keypad armed/disarmed the system for use with
 //											  not ideal prefer alarmtime but its before new alarm time is set
 	def kMode=false							//new keypad light setting, waiting for mode to change is a bit slow
-	def kbMap = [value: armMode]		
+	def kbMap = [value: armMode, source: "keypad"]		
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
@@ -713,7 +707,7 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			theStatus='stay'
 			theMode='Night'
 			}
-		log.debug "keypadModeHandler input: ${evt.value} output: $theMode"
+		log.debug "keypadModeHandler input: ${evt.value} lightMode: $theMode STalarm: $theStatus"
 		}
 
 	if (globalKeypadControl)			//when we are controlling keypads, set lights
@@ -765,14 +759,19 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
-	log.debug "keypadLightHandler entered ${evt} ${theMode}"
+	log.debug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
 	globalKeypadDevices.each
 		{ keypad ->
 		if (theMode == 'Home')					//Alarm is off
 			{keypad.setDisarmed()}
 		else
 		if (theMode == 'Stay')
-			{keypad.setArmedStay()}				//lights Partial light on Iris
+			{
+			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
+				{keypad.setArmedNight()}
+			else	
+				{keypad.setArmedStay()}				//lights Partial light on Iris
+			}
 		else
 		if (theMode == 'Night')					//Iris has no Night light set Partial on	
 			{

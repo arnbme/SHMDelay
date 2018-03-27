@@ -412,7 +412,7 @@ def pageTwo()
 			input "thesiren", "capability.alarm", required: false, multiple: true,
 				title: "Beep these devices on entry delay (Optional)"
 			input "thebeepers", "capability.tone", required: false, multiple: true,
-				title: "Beep these devices when real contact sensor opens, and Alarm State is Off (Optional)"
+				title: "Beep/Chime these devices when real contact sensor opens, and Alarm State is Off (Optional)"
 			}
 		}
 	}	
@@ -630,7 +630,7 @@ def childalarmStatusHandler(evt)
 		else	
 		if (parent?.globalKeypad && theAlarm=="stay" && parent?.globalTrueNight && theMode=="Night" && thekeypad)
 			{
-			thekeypad.each
+/*			thekeypad.each
 				{
 				if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
 					{
@@ -638,7 +638,7 @@ def childalarmStatusHandler(evt)
 					thekeypad.setArmedNight([delay: 2000])
 					}
 				}
-			}	
+*/			}	
 		}
 	}	
 	
@@ -793,10 +793,26 @@ def doorOpensHandler(evt)
 //	check first if this is an exit delay in away mode, if yes monitor the door, else its an alarm
 	def kSecs=0					//if defined in if statment it is lost after the if
 	def kMap
+	def currkeypadmode=""
 	if (parent?.globalKeypadControl)
 		{
 		kMap=parent?.atomicState.kMap
 		kSecs = Math.round(kMap.dtim / 1000)
+//		Get the status of the first (non-Iris) 3400 keypad
+		parent?.globalKeypadDevices?.each
+			{
+			if (it.getModelName()=="3400" && currkeypadmode=="")
+				{
+				currkeypadmode = it?.currentValue("armMode")
+				log.debug "keypad set currkeypadmode to $currkeypadmode"
+				}
+			}	
+		}	
+//	no 3400 keypad found or set use globalTrueNight 
+	if (currkeypadmode=="" && parent?.globalTrueNight)
+		{
+		currkeypadmode='armedStay'
+		log.debug "globalTrueNight set currkeypadmode to $currkeypadmode"
 		}
 //	if (alarmstatus == "away" && parent.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
 	if (alarmstatus == "away" && parent.globalKeypadControl && theexitdelay > 0 && 
@@ -810,7 +826,8 @@ def doorOpensHandler(evt)
 		new_monitor()
 		}
 	else	
-	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night"))
+//	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")) Mar 23, 2018
+	if (theentrydelay < 1 || (alarmstatus == "stay" && currkeypadmode!="armedStay"))
 		{
 		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
 		if (theentrydelay<1)
