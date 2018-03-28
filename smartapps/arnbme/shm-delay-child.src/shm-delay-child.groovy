@@ -171,12 +171,12 @@ def pageOne()
 			if (parent?.globalMultipleMotion)
 				{
 				input "themotionsensors", "capability.motionSensor", required: false, multiple: true,
-						title: "(Optional!) Ignore these Motion Sensors when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
+					title: "(Optional!) Ignore these Motion Sensors during exit delay, and when the Real Contact Sensor opens during entry delay. These sensors are monitored in Alarm State: Away  (Remove from SmartHome Security Armed (Away) Monitoring)"
 				}	
 			else
 				{	
 				input "themotionsensor", "capability.motionSensor", required: false,
-					title: "(Optional!) Ignore this Motion Sensor when Real Contact Sensor opens (Remove from SmartHome Monitoring)"
+					title: "(Optional!) Ignore this Motion Sensor during exit delay, and when the Real Contact Sensor opens during entry delay. The sensor is monitored in Alarm State: Away  (Remove from SmartHome Security Armed (Away) Monitoring)"
 				}
 			}	
 		section
@@ -689,7 +689,6 @@ def motionActiveHandler(evt)
 	def alarmstatus = alarm?.value
 	if (alarmstatus != "away")
 		{return false}
-
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
 
@@ -734,7 +733,7 @@ def motionActiveHandler(evt)
 //		log.debug "scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
-			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
+			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.c]]
 			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
 			if (themotiondelay > 0)
 				{
