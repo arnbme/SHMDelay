@@ -689,6 +689,7 @@ def motionActiveHandler(evt)
 	def alarmstatus = alarm?.value
 	if (alarmstatus != "away")
 		{return false}
+
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
 
@@ -733,7 +734,7 @@ def motionActiveHandler(evt)
 //		log.debug "scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
-			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.c]]
+			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
 			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
 			if (themotiondelay > 0)
 				{
