@@ -2,17 +2,17 @@
     "namespace": "arnbme",
     "repoOwner": "arnbme",
     "repoName": "SHMDelay",
-    "repoBranch": "master",
-    "name": "Smarthome Entry and Exit Delays",
+    "repoBranch": "Version2",
+    "name": "Smarthome Entry and Exit Delays Verson 2",
     "author": "Arn B",
-    "description": "Simulates the Entry and Exit Delay parameters currently missing in Smart Home Monitor (SHM)",
+    "description": "Provides the Entry and Exit Delay options currently missing in Smart Home Monitor (SHM), allowing for some time on entry to disarm the system, and time to exit the facility without triggering an alarm.",
     "category": "Community Created Smartapps",
     "bannerUrl": "https://www.arnb.org/IMAGES/hourglass.png",
-    "forumUrl": "https://community.smartthings.com/t/release-smarthome-delay/95991/",
-    "docUrl": "https://community.smartthings.com/t/release-smarthome-delay/95991/",
-    "releaseType": "production",
+    "forumUrl": "https://community.smartthings.com/t/release-shm-delay-version-2-0/121800/",
+    "docUrl": "https://community.smartthings.com/t/release-shm-delay-version-2-0/121800/",
+    "releaseType": "beta",
     "keywords": ["Entry Delay", "Exit Delay", "SmartHome", "SHM", "keypad"],
-    "notes": "Nothing to show here (yet)",
+    "notes": "Includes optional total support for Iris, Xfinity and Centralite keypads with Panic Key and Pin support. Also includes setting pins for Users, running a Piston, or running a Routine",
     "smartApps": 
     	{
         "parent": 
@@ -21,7 +21,7 @@
             "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
             "published": true,
             "oAuth": false,
-            "version": "1.6.0",
+            "version": "2.0.0",
             "appSettings": {},
             "appUrl": "smartapps/arnbme/shm-delay.src/shm-delay.groovy"
         	},
@@ -32,7 +32,7 @@
             "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
             "published": false,
             "oAuth": false,
-            "version": "1.7.5",
+            "version": "2.0.0",
             "appSettings": {},
             "appUrl": "smartapps/arnbme/shm-delay-child.src/shm-delay-child.groovy",
             "optional": false
@@ -45,6 +45,16 @@
             "version": "0.1.2",
             "appSettings": {},
             "appUrl": "smartapps/arnbme/shm-delay-modefix.src/shm-delay-modefix.groovy",
+            "optional": false
+        	},
+        	{
+            "name": "SHM Delay Users",
+            "iconUrl": "https://www.arnb.org/IMAGES/hourglass.png",
+            "published": false,
+            "oAuth": false,
+            "version": "0.0.0",
+            "appSettings": {},
+            "appUrl": "smartapps/arnbme/shm-delay-user.src/shm-delay-user.groovy",
             "optional": false
         	}
         	]
