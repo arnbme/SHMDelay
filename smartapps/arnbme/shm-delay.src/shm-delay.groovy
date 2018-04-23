@@ -14,6 +14,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Apr 23, 2018 v2.0.2  when arming on Xfinity 3400 with Stay icon, light flipped to Night icon caused instant alarm
+ *							See logic for Stay and Night in routine keypadLightHandler
  *  Apr 04, 2018 v2.0.1  Fix issue with burned pin, move all documentation to community forum release thread,
  *							change global keypad selection from capability to device
  *  Mar 20, 2018 v2.0.0  add reverse mode fix, user defined modes, set Alarm State when mode changes 
@@ -52,7 +54,7 @@ definition(
     name: "SHM Delay",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "(V2.0.1)Smart Home Monitor Exit/Entry Delays with optional Keypad support",
+    description: "(V2.0.2)Smart Home Monitor Exit/Entry Delays with optional Keypad support",
     category: "My Apps",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
@@ -126,13 +128,13 @@ def main()
 			}	
 		section
 			{
-			href (url: "https://community.smartthings.com/t/beta-shm-delay-version-2-0/121800",
+			href (url: "https://community.smartthings.com/t/release-shm-delay-version-2-0/121800",
 			title: "Smartapp Documentation",
 			style: "external")
 			}
 		section
 			{
-			paragraph "SHM Delay Version 2.0.1 Beta"
+			paragraph "SHM Delay Version 2.0.2"
 			}
 		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
@@ -458,6 +460,7 @@ def execRoutine(aMap)
 //											  not ideal prefer alarmtime but its before new alarm time is set
 	def kMode=false							//new keypad light setting, waiting for mode to change is a bit slow
 	def kbMap = [value: armMode, source: "keypad"]		
+	log.debug "execRoutine aMap: ${aMap} kbMap: ${kbMap}"
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
@@ -584,23 +587,41 @@ def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
 	log.debug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
+	def currkeypadmode=""
 	globalKeypadDevices.each
 		{ keypad ->
+		currkeypadmode = keypad?.currentValue("armMode")
+		log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
 		if (theMode == 'Home')					//Alarm is off
 			{keypad.setDisarmed()}
 		else
 		if (theMode == 'Stay')
 			{
-			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-				{keypad.setArmedNight()}
-			else	
+//			deprecated on Apr 23, 2018		
+//			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
+//				{keypad.setArmedNight()}
+//			else	
+//				{keypad.setArmedStay()}				//lights Partial light on Iris
+			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" && currkeypadmode =="armedStay")
+				{}
+			else
 				{keypad.setArmedStay()}				//lights Partial light on Iris
 			}
 		else
 		if (theMode == 'Night')					//Iris has no Night light set Partial on	
 			{
 			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-				{keypad.setArmedNight()}
+				{
+				if (evt.source=="keypad")
+					{keypad.setArmedNight()}
+				else
+				if (currkeypadmode =="armedStay")
+					{
+//					log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+					}
+				else
+					{keypad.setArmedNight()}
+				}				
 			else
 				{keypad.setArmedStay()}
 			}	
