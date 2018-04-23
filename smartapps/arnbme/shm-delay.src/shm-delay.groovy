@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Apr 23, 2018 v2.0.2a reduce overhead by asking for keypad status as needed, may be creating keypad traffic collisions
  *  Apr 23, 2018 v2.0.2  when arming on Xfinity 3400 with Stay icon, light flipped to Night icon caused instant alarm
  *							See logic for Stay and Night in routine keypadLightHandler
  *  Apr 04, 2018 v2.0.1  Fix issue with burned pin, move all documentation to community forum release thread,
@@ -590,22 +591,22 @@ def keypadLightHandler(evt)						//set the Keypad lights
 	def currkeypadmode=""
 	globalKeypadDevices.each
 		{ keypad ->
-		currkeypadmode = keypad?.currentValue("armMode")
-		log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
 		if (theMode == 'Home')					//Alarm is off
 			{keypad.setDisarmed()}
 		else
 		if (theMode == 'Stay')
 			{
+			keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
 //			deprecated on Apr 23, 2018		
 //			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
 //				{keypad.setArmedNight()}
 //			else	
 //				{keypad.setArmedStay()}				//lights Partial light on Iris
-			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" && currkeypadmode =="armedStay")
-				{}
-			else
-				{keypad.setArmedStay()}				//lights Partial light on Iris
+//			deprecated on Apr 23, 2018 2.0.2a
+//			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" && currkeypadmode =="armedStay")
+//				{}
+//			else
+//				{keypad.setArmedStay()}				//lights Partial light on Iris
 			}
 		else
 		if (theMode == 'Night')					//Iris has no Night light set Partial on	
@@ -615,14 +616,18 @@ def keypadLightHandler(evt)						//set the Keypad lights
 				if (evt.source=="keypad")
 					{keypad.setArmedNight()}
 				else
-				if (currkeypadmode =="armedStay")
 					{
-//					log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+					currkeypadmode = keypad?.currentValue("armMode")
+					log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
+					if (currkeypadmode =="armedStay")
+						{
+//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+						}
+					else
+						{keypad.setArmedNight()}
 					}
-				else
-					{keypad.setArmedNight()}
-				}				
-			else
+				}	
+			else	
 				{keypad.setArmedStay()}
 			}	
 		else
