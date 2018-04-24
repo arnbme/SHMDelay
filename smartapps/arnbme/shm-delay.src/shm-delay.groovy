@@ -14,6 +14,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Apr 23, 2018 v2.0.3  When Modefix: on; then change mode with Action Tiles from night to stay;
+ *							3400 keypad night light did not change to stay
+ *							Consider adding user and perhaps system defined modes to keypad light profile in future
+ *  Apr 23, 2018 v2.0.2b cleanup keypadModeHandler debug messages, see change in keypadModeHandler
  *  Apr 23, 2018 v2.0.2a reduce overhead by asking for keypad status as needed, may be creating keypad traffic collisions
  *  Apr 23, 2018 v2.0.2  when arming on Xfinity 3400 with Stay icon, light flipped to Night icon caused instant alarm
  *							See logic for Stay and Night in routine keypadLightHandler
@@ -55,7 +59,7 @@ definition(
     name: "SHM Delay",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "(V2.0.2)Smart Home Monitor Exit/Entry Delays with optional Keypad support",
+    description: "(2.0.3)Smart Home Monitor Exit/Entry Delays with optional Keypad support",
     category: "My Apps",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
@@ -135,7 +139,7 @@ def main()
 			}
 		section
 			{
-			paragraph "SHM Delay Version 2.0.2"
+			paragraph "SHM Delay Version 2.0.3"
 			}
 		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
@@ -533,10 +537,11 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		if (it.stayModes.contains(theMode))
 			{
 			theStatus='stay'
-			theMode='Night'
+			if (theMode!="Stay")		//2.0.3 Apr 24, 2018 fix keypad light not changing from Night to Stay on 3400 keypad 
+				theMode='Night'
 			}
-		log.debug "keypadModeHandler input: ${evt.value} lightMode: $theMode STalarm: $theStatus"
 		}
+	log.debug "keypadModeHandler GlobalFix:${globalFixMode} theMode: $theMode theStatus: $theStatus"
 
 	if (globalKeypadControl)			//when we are controlling keypads, set lights
 		{
@@ -545,7 +550,7 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			def kMap=atomicState.kMap
 			def kDtim=now()
 			def kMode
-			log.debug "keypadModeHandler entered ${evt} ${evt.value} $themode ${kMap}"
+			log.debug "keypadModeHandler KeypadControl entered theMode: ${theMode} AtomicState.kMap: ${kMap}"
 			def setKeypadLights=true
 			if (kMap)
 				{
