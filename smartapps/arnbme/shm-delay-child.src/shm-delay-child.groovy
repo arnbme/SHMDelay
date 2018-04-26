@@ -8,6 +8,11 @@
  *
  * 
  *  Copyright 2017 Arn Burkhoff
+ * 
+ * 	Changes to Apache License
+ *	4. Redistribution. Add paragraph 4e.
+ *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
+ *	 	and cannot be used for commercial purposes.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -17,6 +22,9 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Apr 26	2018 v2.0.2  User unable to add simulated contact sensor
+ *							modify pageOneVerify logic allowing real contact devices containing word simulated
+ *							to be overridden, but leave simulated contact device logic as is
  *	Apr 25	2018 v2.0.1  When multiple delay profiles and motion sensor in multiple profiles triggers false alarm
  *							Use routine checkOtherDelayProfiles when user turns on globalDuplicateMotionSensors
  *							add Version routine
@@ -127,7 +135,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.1";
+	return "2.0.2";
 	}
 	
 def pageZeroVerify()
@@ -246,11 +254,10 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
-		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
-		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
-		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches(ok_names)))
-//	Jan 3, 2018	    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
+		if ((thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
+		    thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
+		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null) &&
+		    !thecontact.typeName.matches(ok_names))
 			{
 			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, or enter data into Contact Name field, or tap 'Remove'\n\n"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -271,10 +278,9 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			}
 		else
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
-		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
+		    (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
 		    !thesimcontact.typeName.matches(ok_names)))
-// Jan 3, 2017   !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
@@ -1146,7 +1152,6 @@ def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 		{
 		if (it?.getInstallationState()!='COMPLETE')
 			{
-//			use logic from shm delay child to check names and matching			
 			log.debug "Incomplete profile skipped: ${it?.thecontact.displayName}"
 			return false	//this continues the ***find*** loop, does not end function
 			}			
@@ -1154,7 +1159,7 @@ def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 		log.debug "looping on profile: ${it?.thecontact.displayName} Comparing: ${baseContact.displayName}"
 		if (it?.thecontact.displayName==baseContact.displayName)			//is this the active profile
 			{
-//			log.debug "Active Profile skipped" 
+			log.debug "Active Profile skipped" 
 			return false	//this continues the ***find*** loop, does not end function
 			}			
 
@@ -1187,7 +1192,7 @@ def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 			def events=it.thecontact.events()
 			def esize=events.size()
 			def i = 0
-			log.debug "motionActiveHandler scanning events ${esize}"
+//			log.debug "motionActiveHandler scanning events ${esize}"
 			def open_seconds=999999
 			for(i; i < esize; i++)
 				{
