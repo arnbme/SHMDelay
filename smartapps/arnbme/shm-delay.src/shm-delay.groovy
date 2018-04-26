@@ -2,8 +2,14 @@
  *  Smart Home Entry and Exit Delay and Open Contact Monitor, Parent 
  *  Functions: 
  *		Acts as a container/controller for Child module
+ *		Process all Keypad activity
  * 
  *  Copyright 2017 Arn Burkhoff
+ * 
+ * 	Changes to Apache License
+ *	4. Redistribution. Add paragraph 4e.
+ *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
+ *	 	and cannot be used for commercial purposes.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -14,9 +20,12 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *  Apr 23, 2018 v2.0.3  When Modefix: on; then change mode with Action Tiles from night to stay;
+ *  Apr 25, 2018 v2.0.4  Add Dynamic Version number;
+ *						 Use user defined armed (home) light mode for 3400 keypads defined in SHm Delay Modefix
+ *						 Add globalDuplicateMotionSensors used by SHM Delay Child to implement logic to handle
+ *							false alarm issues when a motion sensors is defined in multiple delay profiles	
+ *  Apr 24, 2018 v2.0.3  When Modefix: on; then change mode with Action Tiles from night to stay;
  *							3400 keypad night light did not change to stay
- *							Consider adding user and perhaps system defined modes to keypad light profile in future
  *  Apr 23, 2018 v2.0.2b cleanup keypadModeHandler debug messages, see change in keypadModeHandler
  *  Apr 23, 2018 v2.0.2a reduce overhead by asking for keypad status as needed, may be creating keypad traffic collisions
  *  Apr 23, 2018 v2.0.2  when arming on Xfinity 3400 with Stay icon, light flipped to Night icon caused instant alarm
@@ -59,7 +68,7 @@ definition(
     name: "SHM Delay",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "(2.0.3)Smart Home Monitor Exit/Entry Delays with optional Keypad support",
+    description: "(${version()}) Smart Home Monitor Exit/Entry Delays with optional Keypad support",
     category: "My Apps",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
@@ -71,6 +80,10 @@ preferences {
     page(name: "globalsPage", nextPage: "main")	
 }
 
+def version()
+	{
+	return "2.0.3";
+	}
 def main()
 	{
 	dynamicPage(name: "main", install: true, uninstall: true)
@@ -139,7 +152,7 @@ def main()
 			}
 		section
 			{
-			paragraph "SHM Delay Version 2.0.3"
+			paragraph "SHM Delay Version ${version()}"
 			}
 		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
@@ -163,6 +176,8 @@ def globalsPage()
 				title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
 			input "globalMultipleMotion", "bool", required: true, defaultValue: false,
 				title: "Allow Multiple Motion Sensors in Delay Profile. Default: Off/False" 
+			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
+				title: "Check other delay profiles when a motion sensor is defined in multiple delay profiles.\nDefault Off/False"
 			input "globalFixMode", "bool", required: true, defaultValue: false,
 				title: "Mode Fix: When AlarmState changes, fix Mode when invalid. Default: Off/False"
 //			input "globalKeypad", "bool", required: true, defaultValue: false,
@@ -516,12 +531,12 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			theMode='Away'
 			}
 		else
-		if (it.stayDefault == theMode)
-			{
-			theStatus='stay'
-			theMode='Night'
-			}
-		else 
+//		if (it.stayDefault == theMode)		2.0.4 Apr 24, 2018 commented out, handled to stayModes.contains below
+//			{
+//			theStatus='stay'
+//			theMode='Night'
+//			}
+//		else 
 		if (it.offModes.contains(theMode))
 			{
 			theStatus='off'
@@ -537,8 +552,17 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		if (it.stayModes.contains(theMode))
 			{
 			theStatus='stay'
-			if (theMode!="Stay")		//2.0.3 Apr 24, 2018 fix keypad light not changing from Night to Stay on 3400 keypad 
+//			if (theMode!="Stay")		//2.0.3 Apr 24, 2018 fix keypad light not changing from Night to Stay on 3400 keypad 
+			if (it."stayLight${theMode}")	//2.0.4 Apr 24, 2018 select Icon light from User set Modefix Icon light data 
+				{
+				theMode=it."stayLight${theMode}"
+//				log.debug "Stay mode ${theMode} picked from settings"
+				}
+			else	
+				{
+//				log.debug "Stay mode default night mode used"
 				theMode='Night'
+				}
 			}
 		}
 	log.debug "keypadModeHandler GlobalFix:${globalFixMode} theMode: $theMode theStatus: $theStatus"
@@ -778,4 +802,4 @@ def getResponseHandler(response, data)
 	{
     if(response.getStatus() != 200)
     	sendNotificationEvent("SHM Delay Piston HTTP Error = ${response.getStatus()}")
-	}	
+	}

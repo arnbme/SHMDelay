@@ -1,10 +1,15 @@
  /*
  *  SHM Delay ModeFix 
- *  Functions: Fix the mode when it is invalid, generally cause when using Dashboard to switch modes
+ *  Functions: Fix the mode when it is invalid, generally caused when using Dashboard to switch modes
  * 
  *  Copyright 2017 Arn Burkhoff
+ * 
+ *  Changes to Apache License
+ *	4. Redistribution. Add paragraph 4e.
+ *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
+ *	 	and cannot be used for commercial purposes.
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  Licensed under the Apache License with changes noted above, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
@@ -13,6 +18,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Apr 24, 2018	v0.1.4	For Xfinity and Centralite model 3400 keypad on armed (Home) modes 
+ *								add device icon button to light Stay (Entry Delay) or Night (Instant Intrusion)
+ *								
  * 	Mar 11, 2018    v0.1.3  add logging to notifications when mode is changed. 
  *								App issued changes are not showing in PhoneApp notifications
  *								Assumed system would log this but it does not
@@ -29,7 +37,7 @@ definition(
     name: "SHM Delay ModeFix",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "Fix the ST Mode when using ST Dashboard to change AlarmState",
+    description: "(${version()}) Fix the ST Mode and or Alarm State when using ST Dashboard to change AlarmState or Mode",
     category: "My Apps",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
@@ -41,6 +49,11 @@ preferences {
 	page(name: "pageTwo")
 	page(name: "aboutPage", nextPage: "pageOne")
 }
+
+def version()
+	{
+	return "0.1.4";
+	}
 
 def pageOne(error_msg)
 	{
@@ -84,7 +97,33 @@ def pageOne(error_msg)
 			input "stayDefault", "mode", required: true, defaultValue: "Night",
 				title: "Default Mode for Armed Home"
 			}	
-		}
+		if (parent.globalKeypadControl)
+			{
+			def showLights=false;
+			parent.globalKeypadDevices.each
+				{ keypad ->
+				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
+				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+					{showLights=true}
+				}					
+			if (showLights)
+				{
+				section ("A model 3400 Keypad is defined\nSet the keypad Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
+					{
+					stayModes.each
+						{
+						input "stayLight${it.value}", "enum", options: ["Night", "Stay"], required: true, defaultValue: "Night",
+							title: "${it.value} Mode"
+						}
+					}
+				}	
+			}
+		section
+			{
+			paragraph "SHM Delay Modefix ${version()}"
+			}
+
+		}	
 	}	
 
 def pageOneVerify() 				//edit page One
@@ -182,6 +221,31 @@ def pageTwo()
 			input "stayDefault", "mode", required: true, defaultValue: "Night",
 				title: "Default Mode for Armed Home"
 			}	
+		if (parent.globalKeypadControl)
+			{
+			def showLights=false;
+			parent.globalKeypadDevices.each
+				{ keypad ->
+				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
+				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+					{showLights=true}
+				}					
+			if (showLights)
+				{
+				section ("A model 3400 Keypad is defined\nSet the Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
+					{
+					stayModes.each
+						{
+						input "stayLight${it.value}", "enum", options: ["Night", "Stay"], required: true, defaultValue: "Night",
+							title: "${it.value} Mode"
+						}
+					}
+				}	
+			}
+		section
+			{
+			paragraph "SHM Delay Modefix ${version()}"
+			}
 		}
 	}	
 
@@ -228,8 +292,8 @@ def alarmStatusHandler(evt)
 	others are from SHM Delay Child repackaged evt object 
 	which passes a childid property stoppings multiple notifications from sending
 */	
-	def theAlarm = evt.value
-	def fromST=true					//event is from Smarthing subscribe till proven otherwise
+	def theAlarm = evt.value		//off, stay, or away Alarm Mode set by event value
+	def fromST=true					//event is assumed from Smarthings subscribe till proven otherwise
 	try
 		{
 		if (evt.childid)
