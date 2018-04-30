@@ -8,6 +8,11 @@
  *
  * 
  *  Copyright 2017 Arn Burkhoff
+ * 
+ * 	Changes to Apache License
+ *	4. Redistribution. Add paragraph 4e.
+ *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
+ *	 	and cannot be used for commercial purposes.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -17,6 +22,12 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Apr 26	2018 v2.0.2  User unable to add simulated contact sensor
+ *							modify pageOneVerify logic allowing real contact devices containing word simulated
+ *							to be overridden, but leave simulated contact device logic as is
+ *	Apr 25	2018 v2.0.1  When multiple delay profiles and motion sensor in multiple profiles triggers false alarm
+ *							Use routine checkOtherDelayProfiles when user turns on globalDuplicateMotionSensors
+ *							add Version routine
  *	Mar 21	2018 v2.0.0  add optional beep devices when door contact opens.
  *	Mar 04	2018 v2.0.0  Ignore User profiles in function iscontactUnique().
  *							add support for globalDisable flag in first level event processing functions
@@ -105,7 +116,7 @@ definition(
     name: "SHM Delay Child",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "Simulate missing SmartHome entry and exit delay parameters, Child module",
+    description: "(${version()}) Child Delay Profile, Smart Home Monitor Exit/Entry Delays",
     category: "My Apps",
     parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
@@ -122,7 +133,11 @@ preferences {
 	page(name: "pageThree", nextPage: "pageThreeVerify")
 	}
 
-
+def version()
+	{
+	return "2.0.2";
+	}
+	
 def pageZeroVerify()
 	{
 	if (parent && parent.getInstallationState()=='COMPLETE')
@@ -239,11 +254,10 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'\n\n"
 			}
 		else
-		if (thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
-		   (thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
-		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null &&
-		    !thecontact.typeName.matches(ok_names)))
-//	Jan 3, 2018	    !thecontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
+		if ((thecontact.typeName.matches("(.*)(?i)simulated(.*)") ||
+		    thecontact.getManufacturerName() == null && thecontact.getModelName()==null &&
+		    thecontact?.currentState("battery") == null && thecontact?.currentState("batteryStatus") == null) &&
+		    !thecontact.typeName.matches(ok_names))
 			{
 			error_data+="The 'Real Contact Sensor' appears to be simulated. Please select a differant real contact sensor, or enter data into Contact Name field, or tap 'Remove'\n\n"
 /*			error_data="'${thecontact.displayName}' is simulated. Please select a differant real contact sensor or tap 'Remove'"
@@ -264,10 +278,9 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			}
 		else
 		if (thesimcontact.typeName.matches("(.*)(?i)simulated(.*)") ||
-		   (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
+		    (thesimcontact.getManufacturerName() == null && thesimcontact.getModelName()==null &&
 		    thesimcontact.currentState("battery") == null && thesimcontact?.currentState("batteryStatus") == null &&
 		    !thesimcontact.typeName.matches(ok_names)))
-// Jan 3, 2017   !thesimcontact.typeName.matches("(.*)(?i)((C|K)onnect|honeywell|Z[-]Wave|Nortek|RG Linear)(.*)")))
 			{
 			if (!issimcontactUnique())
 				{
@@ -677,7 +690,7 @@ def motionActiveHandler(evt)
 		return false
 //	A motion sensor shows motion
 	def triggerDevice = evt.getDevice()
-//	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
+	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
 
 //	if not in Away mode, ignore all motion sensor activity
 //	When alarm was set less than exit delay time, ignore the motion sensor activity
@@ -709,10 +722,16 @@ def motionActiveHandler(evt)
 //	if (parent?.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
 	if (parent.globalKeypadControl && theexitdelay > 0 && 
 		alarmSecs - kSecs > 4 && currSecs - alarmSecs < theexitdelay)
-		{return false}
+		{
+//		log.debug "motionActiveHandler return1"
+		return false
+		}
 	else
 	if (!parent?.globalKeypadControl && theexitdelay > 0 && currSecs - alarmSecs < theexitdelay)
-		{return false}
+		{
+//		log.debug "motionActiveHandler return2"
+		return false
+		}
 	else
 		{
 //		process motion sensor event that may occur during an entrydelay		
@@ -720,7 +739,7 @@ def motionActiveHandler(evt)
 		def events=thecontact.events()
 		def esize=events.size()
 		def i = 0
-//		log.debug "${esize}"
+//		log.debug "motionActiveHandler scanning events ${esize}"
 		def open_seconds=999999
 		for(i; i < esize; i++)
 			{
@@ -730,19 +749,29 @@ def motionActiveHandler(evt)
 				break;
 				}
 			}	
-//		log.debug "scan done ${esize} ${open_seconds}"
+//		log.debug "motionActiveHandler scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
+					
 			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false, motion: triggerDevice.displayName]]
-			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
 			if (themotiondelay > 0)
 				{
 				def now = new Date()
 				def runTime = new Date(now.getTime() + (themotiondelay * 1000))
 				runOnce(runTime, waitfordooropen, [data: aMap]) 
 				}
-			else	
-				{soundalarm(aMap.data)}
+			else
+				{
+				log.debug "*****testing duplicate sensor flag*******"
+				if (parent?.globalDuplicateMotionSensors)
+					{
+					log.debug "*****Calling checkOtherDelayProfile*******"
+					if (checkOtherDelayProfiles(thecontact, triggerDevice, theentrydelay))
+						{return false}
+					}
+				}
+			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
+			soundalarm(aMap.data)
 			}
 		}	
 
@@ -1102,4 +1131,85 @@ def checkStatus()
 		killit()
 		}
 
+	}
+	
+/*
+When a motion sensor is defined in multiple delay profiles, it may trigger a false alarm when one of the contact 
+sensors opens, since the other profile's contact is closed giving an instant alarm. This routine is called prior to the 
+child motion sensor alert issueing an alarm.
+return true = Suppress Alarm
+otherwise return false
+
+Moved from parent to child. Makes debugging easier since debug messages are contained in single thread
+*/
+def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
+	{
+	def	ignoreSensor=false
+	log.debug "checkOtherDelayProfiles entered Contact: ${baseContact}, Motion: ${baseMotion}, Delay: ${baseEntryDelay}"
+	def profiles=parent.findAllChildAppsByName('SHM Delay Child')
+//	Beginning of ***FIND*** loop
+	profiles.find
+		{
+		if (it?.getInstallationState()!='COMPLETE')
+			{
+			log.debug "Incomplete profile skipped: ${it?.thecontact.displayName}"
+			return false	//this continues the ***find*** loop, does not end function
+			}			
+
+		log.debug "looping on profile: ${it?.thecontact.displayName} Comparing: ${baseContact.displayName}"
+		if (it?.thecontact.displayName==baseContact.displayName)			//is this the active profile
+			{
+			log.debug "Active Profile skipped" 
+			return false	//this continues the ***find*** loop, does not end function
+			}			
+
+		if (parent.globalMultipleMotion)	
+			{
+			log.debug "finding motion in multiple motion profile: ${it?.themotionsensors} Comparing: ${baseMotion.displayName}"
+			if (it?.themotionsensors.displayName.contains(baseMotion.displayName))			//is this the active profile
+				{}
+			else
+				{
+				log.debug "Profile ${it?.thecontact.displayName} skipped motion sensor: baseMotion.displayName  not found in multiple" 
+				return false	//this continues the ***find*** loop, does not end function
+				}			
+			}
+		else
+			{
+			log.debug "finding motion in single motion profile: ${it?.themotionsensor.displayName} Comparing: ${baseMotion.displayName}"
+			if (it?.themotionsensor.displayName!=baseMotion.displayName)			//is this the active profile
+				{
+				log.debug "Profile skipped motion sensor not found" 
+				return false	//this continues the ***find*** loop, does not end function
+				}			
+			}
+		log.debug "Motion ${baseMotion.displayName} sensor was found in ${it?.thecontact.displayName} Profile that is ${it?.thecontact.currentContact}" 
+		if (it?.thecontact.currentContact=="open")		//ignore this motion sensor other profile contact is open
+			{}
+		else	
+			{
+//			get the last 10 contact sensor events, then find the time the contact was last opened
+			def events=it.thecontact.events()
+			def esize=events.size()
+			def i = 0
+//			log.debug "motionActiveHandler scanning events ${esize}"
+			def open_seconds=999999
+			for(i; i < esize; i++)
+				{
+				if (events[i].value == "open"){
+					open_seconds = Math.round((now() - events[i].date.getTime())/1000)
+//					log.debug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
+					break;
+					}
+				}	
+//			log.debug "motionActiveHandler scan done ${esize} ${open_seconds}"
+			if (open_seconds > baseEntryDelay)
+				return false	//this continues the ***find*** loop, does not end function
+			}
+		ignoreSensor=true		//set to ignore this sensors motion
+		return true				//this terminates the ***find*** loop, does not return to caller
+		}						
+//		end of ***FIND*** loop logic		
+
+	return ignoreSensor			//return to caller
 	}	
