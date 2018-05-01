@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Apr 30, 2018 v0.0.1  Add dynamic Version Number to description and PageThree
  *	Mar 18, 2018 v0.0.0  Add Panic pin usage type 
  *	Mar 01, 2018 v0.0.0  Create 
  *
@@ -22,7 +23,7 @@ definition(
     name: "SHM Delay User",
     namespace: "arnbme",
     author: "Arn Burkhoff",
-    description: "Maintain Users for SHM Delay. Child module",
+    description: "(${version()})  Maintain Users for SHM Delay. Child module",
     category: "My Apps",
     parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
@@ -40,6 +41,11 @@ preferences {
 	page(name: "pageTwo", nextPage: "pageTwoVerify")		//schedule page
 	page(name: "pageTwoVerify")
 	page(name: "pageThree")		//recap page when everything is valid. No changes allowed.
+	}
+
+def version()
+	{
+	return "0.0.1";
 	}
 
 def pageZeroVerify()
@@ -434,7 +440,7 @@ def pageThree(error_data)
 					paragraph "Valid Until: $pinEndDt. Currently: $dtbetween" 
 					}
 				}		
-			paragraph "The Profile Name is ${app.getLabel()}"	
+			paragraph "${app.getLabel()}\nModule SHM Delay User ${version()}"
 			}	
 		}
 	}	
