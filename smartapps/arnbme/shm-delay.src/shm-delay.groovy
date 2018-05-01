@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Apr 30, 2018 v2.0.5  Add Version verification when updating.
+ *						 Add subscribe for alarm state change that executes Version verification
  *  Apr 25, 2018 v2.0.4  Add Dynamic Version number;
  *						 Use user defined armed (home) light mode for 3400 keypads defined in SHm Delay Modefix
  *						 Add globalDuplicateMotionSensors used by SHM Delay Child to implement logic to handle
@@ -82,7 +84,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.4";
+	return "2.0.5";
 	}
 def main()
 	{
@@ -237,6 +239,8 @@ def initialize()
 		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
 		    }
 		}
+	subscribe(location, "alarmSystemStatus", verify_version)
+	verify_version()
 	}	
 
 //  --------------------------Keypad support added Mar 02, 2018 V2-------------------------------
@@ -803,3 +807,74 @@ def getResponseHandler(response, data)
     if(response.getStatus() != 200)
     	sendNotificationEvent("SHM Delay Piston HTTP Error = ${response.getStatus()}")
 	}
+
+	
+def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
+	{
+	def uri='https://www.arnb.org/shmdelay/'
+//	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
+//	uri+='&lon='+location.longitude
+	uri+='?hub='+location.hubs[0].encodeAsBase64()   //May have quotes and other stuff 
+	uri+='&zip='+location.zipCode
+	uri+='&cnty='+location.country
+    uri+='&eui='+location.hubs[0].zigbeeEui
+	def childApps = getChildApps()		//gets all completed child apps
+	def vdelay=version()
+	def vchild=''
+	def vmodefix=''
+	def vuser=''
+	childApps.find 						//change from each to find to speed up the search
+		{
+//		log.debug "child ${it.getName()}"
+		if (vchild>'' && vmodefix>'' && vuser>'')
+			return true
+		else
+		if (it.getName()=="SHM Delay Child")	
+			{
+			if (vchild=='')
+				vchild=it?.version()
+			return false
+			}	
+		else
+		if (it.getName()=="SHM Delay ModeFix")				//should only have 1 profile
+			{
+			vmodefix=it?.version()
+			return false
+			}	
+		else
+		if (it.getName()=="SHM Delay User")	
+			{
+			if (vuser=='')
+				vuser=it?.version()
+			return false
+			}	
+		}
+	uri+="&p=${vdelay}"
+    uri+="&c=${vchild}"
+    uri+="&m=${vmodefix}"
+    uri+="&u=${vuser}"
+    log.debug "${uri}"
+    
+	try {
+		include 'asynchttp_v1'
+		asynchttp_v1.get('versiongetResponseHandler', [uri: uri])
+		}
+	catch (e)
+		{
+		log.debug "Execution failed ${e}"
+		}
+	}	
+	
+//	Process response from async execution of version test to arnb.org
+def versiongetResponseHandler(response, data)
+	{
+    if(response.getStatus() == 200)
+    	{
+		def results = response.getJson()
+		log.debug "SHM Delay good response ${results.msg}"
+		if (results.msg != 'OK')
+    		sendNotificationEvent("${results.msg}")
+        }
+    else
+    	sendNotificationEvent("SHM Delay Version Check, HTTP Error = ${response.getStatus()}")
+    }		
