@@ -16,7 +16,7 @@
  *
  */
 metadata {
-	definition (name: "Internet Keypadx", namespace: "arnbme", author: "Arn Burkhoff") {
+	definition (name: "Internet Keypad", namespace: "arnbme", author: "Arn Burkhoff") {
 		capability "Notification"
 
 		attribute "armModex", "String"
