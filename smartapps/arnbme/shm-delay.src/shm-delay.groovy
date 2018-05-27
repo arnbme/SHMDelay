@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  May 25, 2018 v2.0.7  Add Simulated Keypad Child App
+ *  May 23, 2018 v2.0.6  Add Simulated Panic support. (deprecated, moved the simulated keypad childapp)
+ *  Apr 30, 2018 v2.0.6  Add Simulated keypad support.(deprecated, moved the simulated keypad childapp)
  *  Apr 30, 2018 v2.0.5  Add Version verification when updating.
  *						 Add subscribe for alarm state change that executes Version verification
  *  Apr 25, 2018 v2.0.4  Add Dynamic Version number;
@@ -84,7 +87,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.5";
+	return "2.0.7";
 	}
 def main()
 	{
@@ -117,6 +120,10 @@ def main()
 				section 
 					{
 					app(name: "UserProfile", appName: "SHM Delay User", namespace: "arnbme", title: "Create A New User Profile", multiple: true)
+					}
+				section 
+					{
+					app(name: "SimKypdProfile", appName: "SHM Delay Simkypd Child", namespace: "arnbme", title: "Create A New Sim Keypad Profile", multiple: true)
 					}
 				}	
 			section
