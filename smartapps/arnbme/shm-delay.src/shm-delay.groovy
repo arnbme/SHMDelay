@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  May 28, 2018 v2.0.7  Allow GlobalKeypadControl to be set when no real Keypads are defined
+ *							fixes problem when using simulated keypads without a real keypad
  *  May 25, 2018 v2.0.7  Add Simulated Keypad Child App
  *  May 23, 2018 v2.0.6  Add Simulated Panic support. (deprecated, moved the simulated keypad childapp)
  *  Apr 30, 2018 v2.0.6  Add Simulated keypad support.(deprecated, moved the simulated keypad childapp)
@@ -93,6 +95,9 @@ def main()
 	{
 	dynamicPage(name: "main", install: true, uninstall: true)
 		{
+		def userApps = getChildApps()		//gets all completed child apps
+		log.debug "apps count ${userApps.size}" 	
+
 		if (app.getInstallationState() == 'COMPLETE')	//note documentation shows as lower case, but returns upper
 			{  
 			def modeFixChild="Create"
@@ -197,8 +202,8 @@ def globalsPage()
 				{
 				def actions = location.helloHome?.getPhrases()*.label
 				actions?.sort()
-				input "globalKeypadDevices", "device.CentraliteKeypad", required: true, multiple: true,
-					title: "One or more Keypads used to arm and disarm SHM"
+				input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true,
+					title: "Real Keypads used to arm and disarm SHM"
 				input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
 					title: "True exit delay in seconds when arming in Away mode from any keypad. range 0-90, default:30"
 				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
