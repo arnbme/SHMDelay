@@ -12,6 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	May 28, 2018	v1.0.0 Change attribute armModex to armMode for correct system usage 
  *	May 17, 2018	v1.0.0 Created from dummy notification device and Keypad DTH by Mitch Pond, Zack Cornelius
  *
  */
@@ -19,7 +20,7 @@ metadata {
 	definition (name: "Internet Keypad", namespace: "arnbme", author: "Arn Burkhoff") {
 		capability "Notification"
 
-		attribute "armModex", "String"
+		attribute "armMode", "String"
         attribute "lastUpdate", "String"
 		
 		command "setDisarmed"
@@ -90,7 +91,7 @@ def deviceNotification(keycode, armMode)
 		armModex='Unknown:'+armMode
 		
 //	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
-	sendEvent([name: "armModex", value: armModex, displayed: false])
+	sendEvent([name: "armMode", value: armModex, displayed: false])
 	def lastUpdate = formatLocalTime(now())
 	sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
 	}
@@ -137,3 +138,4 @@ private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	formatter.setTimeZone(location.timeZone)
 	return formatter.format(time)
 }
+
