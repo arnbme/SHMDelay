@@ -43,7 +43,7 @@ metadata {
     	{
         multiAttributeTile(name: "keypad", type:"generic", width:6, height:4, canChangeIcon: true)
         	{
-            tileAttribute ("device.armModex", key: "PRIMARY_CONTROL")
+            tileAttribute ("device.armMode", key: "PRIMARY_CONTROL")
             	{            		
                 attributeState("disarmed", label:'${currentValue}', icon:"st.Home.home2", backgroundColor:"#44b621")
                 attributeState("armedStay", label:'ARMED/STAY', icon:"st.Home.home3", backgroundColor:"#ffa81e")
