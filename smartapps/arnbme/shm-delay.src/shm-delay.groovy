@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  May 29, 2018 v2.0.7  Add logic to KeypadLightHandler to process simulated keypads so DTH armMode is properly set
+ *							Split original adding function KeypadLighton
  *  May 28, 2018 v2.0.7  Allow GlobalKeypadControl to be set when no real Keypads are defined
  *							fixes problem when using simulated keypads without a real keypad
  *  May 25, 2018 v2.0.7  Add Simulated Keypad Child App
@@ -95,9 +97,6 @@ def main()
 	{
 	dynamicPage(name: "main", install: true, uninstall: true)
 		{
-		def userApps = getChildApps()		//gets all completed child apps
-		log.debug "apps count ${userApps.size}" 	
-
 		if (app.getInstallationState() == 'COMPLETE')	//note documentation shows as lower case, but returns upper
 			{  
 			def modeFixChild="Create"
@@ -632,16 +631,37 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
+	def simkeypad
 	log.debug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
-	def currkeypadmode=""
+	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
+	simKeypadDevices.each
+		{
+		if (it?.getInstallationState()!='COMPLETE')
+			{
+			log.debug "${it.keypad} warning device not complete, please save the profile"
+			}
+		else
+			{
+			simkeypad=it.simkeypad		//get device 
+			keypadLighton(evt,theMode,simkeypad)
+			}
+		}	
 	globalKeypadDevices.each
 		{ keypad ->
-		if (theMode == 'Home')					//Alarm is off
-			{keypad.setDisarmed()}
-		else
-		if (theMode == 'Stay')
-			{
-			keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
+			keypadLighton(evt,theMode,keypad)
+		}
+	}
+
+def	keypadLighton(evt,theMode,keypad)
+	{
+//	log.debug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+	def currkeypadmode=""
+	if (theMode == 'Home')					//Alarm is off
+		{keypad.setDisarmed()}
+	else
+	if (theMode == 'Stay')
+		{
+		keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
 //			deprecated on Apr 23, 2018		
 //			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
 //				{keypad.setArmedNight()}
@@ -652,34 +672,34 @@ def keypadLightHandler(evt)						//set the Keypad lights
 //				{}
 //			else
 //				{keypad.setArmedStay()}				//lights Partial light on Iris
-			}
-		else
-		if (theMode == 'Night')					//Iris has no Night light set Partial on	
-			{
-			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-				{
-				if (evt.source=="keypad")
-					{keypad.setArmedNight()}
-				else
-					{
-					currkeypadmode = keypad?.currentValue("armMode")
-					log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
-					if (currkeypadmode =="armedStay")
-						{
-//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
-						}
-					else
-						{keypad.setArmedNight()}
-					}
-				}	
-			else	
-				{keypad.setArmedStay()}
-			}	
-		else
-		if (theMode == 'Away')					//lights ON light on Iris
-			{keypad.setArmedAway()}
 		}
-	}	
+	else
+	if (theMode == 'Night')					//Iris has no Night light set Partial on	
+		{
+		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 
+			keypad?.getTypeName()=="Internet Keypad")
+			{
+			if (evt.source=="keypad")
+				{keypad.setArmedNight()}
+			else
+				{
+				currkeypadmode = keypad?.currentValue("armMode")
+				log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
+				if (currkeypadmode =="armedStay")
+					{
+//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+					}
+				else
+					{keypad.setArmedNight()}
+				}
+			}	
+		else	
+			{keypad.setArmedStay()}
+		}	
+	else
+	if (theMode == 'Away')					//lights ON light on Iris
+		{keypad.setArmedAway()}
+	}
 
 def keypadPanicHandler(evt)
 	{
