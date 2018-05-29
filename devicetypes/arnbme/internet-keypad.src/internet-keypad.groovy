@@ -12,6 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	May 29, 2018	v1.0.0 Add date last used, totally revise armMode status settings logic, adjust tiles 
  *	May 28, 2018	v1.0.0 Change attribute armModex to armMode for correct system usage 
  *	May 17, 2018	v1.0.0 Created from dummy notification device and Keypad DTH by Mitch Pond, Zack Cornelius
  *
@@ -22,6 +23,7 @@ metadata {
 
 		attribute "armMode", "String"
         attribute "lastUpdate", "String"
+        attribute "lastUsed", "String"
 		
 		command "setDisarmed"
 		command "setArmedAway"
@@ -50,13 +52,17 @@ metadata {
                 attributeState("armedNight", label:'ARMED/NIGHT', icon:"st.Home.home3", backgroundColor:"#ffa81e")
                 attributeState("armedAway", label:'ARMED/AWAY', icon:"st.nest.nest-away", backgroundColor:"#d04e00")
             	}
-            tileAttribute("device.lastUpdate", key: "SECONDARY_CONTROL") 
+	        tileAttribute("device.lastUpdate", key: "SECONDARY_CONTROL") 
             	{
-                attributeState("default", label:'Last Used: ${currentValue}')
+                attributeState("default", label:'Updated: ${currentValue}')
             	}
         	}
-        }	
-}
+        valueTile("lastuse", "device.lastUsed", decoration: "flat", width: 6, height: 2) 
+        	{
+            state "default", label: 'Last Entry: ${currentValue}'
+        	}	
+		}
+	}	
 
 // parse events into attributes
 def parse(String description) {
@@ -72,40 +78,25 @@ def deviceNotification(keycode, armMode)
 		devicePanic ()
 		return true;
 		}
-	def armModex
-	log.debug "Executing 'deviceNotification' ${armMode} and pin: ${keycode}"
-	sendEvent([name: "codeEntered", value: keycode as String, data: armMode as String, 
-				isStateChange: true, displayed: false])
-	if (armMode=='0')
-		armModex='disarmed'
 	else
-	if (armMode=='1')
-		armModex='armedStay'
-	else
-	if (armMode=='2')
-		armModex='armedNight'
-	else
-	if (armMode=='3')
-		armModex='armedAway'
-	else
-		armModex='Unknown:'+armMode
-		
-//	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
-	sendEvent([name: "armMode", value: armModex, displayed: false])
-	def lastUpdate = formatLocalTime(now())
-	sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
+		{
+//		log.debug "Executing 'deviceNotification' ${armMode} and pin: ${keycode}"
+		sendEvent([name: "codeEntered", value: keycode as String, data: armMode as String, 
+					isStateChange: true, displayed: false])
+		}
+
+	def lastUsed = formatLocalTime(now())
+	sendEvent(name: "lastUsed", value: lastUsed, displayed: false)
 	}
 
 
 // handle Panic request
 def devicePanic() 
 	{
-	log.debug "keypad dth Executing 'devicePanic'"
+//	log.debug "keypad dth Executing 'devicePanic'"
     sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true)
     runIn(3, "panicContactClose")
-	sendEvent([name: "armModex", value: "Panic", displayed: false])
-	def lastUpdate = formatLocalTime(now())
-	sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
+	sendEvent([name: "armMode", value: "Panic", displayed: false])
 	}
 
 def panicContactClose()
@@ -113,15 +104,46 @@ def panicContactClose()
 	sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true)
 	}
 
-def setDisarmed() {}
-def setArmedAway(def delay=0) {}
-def setArmedStay(def delay=0) {}
-def setArmedNight(def delay=0) {}
+def setDisarmed()
+	{
+	setAttributes("disarmed")
+	}
+
+def setArmedAway(def delay=0)
+	{
+	setAttributes("armedAway")
+	}
+
+def setArmedStay(def delay=0)
+	{
+	setAttributes("armedStay")
+	}
+
+def setArmedNight(def delay=0)
+	{
+	setAttributes("armedNight")
+	}
+
 def setEntryDelay(delay) {}
-def setExitDelay(delay) {}
+
+def setExitDelay(delay)
+	{
+	setAttributes("ExitDelay")
+	}
+
 def testCmd() {}
 def sendInvalidKeycodeResponse() {}
 def acknowledgeArmRequest(armMode){}
+
+def setAttributes (armModex)
+//	Update local device attributes when commands are received from SHM Delay or others)
+	{
+//	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
+	sendEvent([name: "armMode", value: armModex, displayed: false])
+	def lastUpdate = formatLocalTime(now())
+	sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
+	}
+
 
 private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	if (time instanceof Long) {
