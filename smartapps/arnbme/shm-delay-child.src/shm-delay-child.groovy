@@ -22,6 +22,9 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	May 30	2018 v2.0.4  True Night Flag working in reverse of specification. 
+ *							modify doorsOpensHandler to correctly set armedNight or armedStay in currKeypadMode 
+ *	May 26	2018 v2.0.3  Editing crashed processing ikypd profile, adjust logic
  *	Apr 26	2018 v2.0.2  User unable to add simulated contact sensor
  *							modify pageOneVerify logic allowing real contact devices containing word simulated
  *							to be overridden, but leave simulated contact device logic as is
@@ -135,7 +138,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.2";
+	return "2.0.4";
 	}
 	
 def pageZeroVerify()
@@ -337,12 +340,9 @@ def iscontactUnique()
 //		log.debug "child app id: ${child.getId()} ${child.getLabel()}"	
 //		log.debug "child contact Id: ${child.thecontact.getId()}"	
 		def childLabel = child.getLabel()
-		if (child.getName()=="SHM Delay User")	
+		if (child.getName()!="SHM Delay Child")	
 			{}
-		else
-		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
-			{}
-		else
+		else	
 		if (child.thecontact.getId() == thecontact.getId() &&
 		    child.getId() != app.getId())
 			{
@@ -359,10 +359,7 @@ def issimcontactUnique()
 	children.each
 		{ child ->
 		def childLabel = child.getLabel()
-		if (child.getName()=="SHM Delay User")	
-			{}
-		else
-		if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
+		if (child.getName()!="SHM Delay Child")	
 			{}
 		else
 		if (child.thesimcontact.getId() == thesimcontact.getId() &&
@@ -837,10 +834,15 @@ def doorOpensHandler(evt)
 				}
 			}	
 		}	
-//	no 3400 keypad found or set use globalTrueNight 
-	if (currkeypadmode=="" && parent?.globalTrueNight)
+
+//	no 3400 keypad found or set currkeypad mode from globalTrueNight for stay mode
+//	updated V2.0.4 fixes incorrect operation of globalTrueNight flag 
+	if (currkeypadmode=="")
 		{
-		currkeypadmode='armedStay'
+		if (parent?.globalTrueNight)
+			currkeypadmode='armedNight'
+		else	
+			currkeypadmode='armedStay'
 		log.debug "globalTrueNight set currkeypadmode to $currkeypadmode"
 		}
 //	if (alarmstatus == "away" && parent.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
