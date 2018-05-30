@@ -12,6 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	May 30, 2018	v1.0.0 remove tstcmd, add attributes lastpin, lastpinstatus.  
  *	May 29, 2018	v1.0.0 Add date last used, totally revise armMode status settings logic, adjust tiles 
  *	May 28, 2018	v1.0.0 Change attribute armModex to armMode for correct system usage 
  *	May 17, 2018	v1.0.0 Created from dummy notification device and Keypad DTH by Mitch Pond, Zack Cornelius
@@ -24,6 +25,8 @@ metadata {
 		attribute "armMode", "String"
         attribute "lastUpdate", "String"
         attribute "lastUsed", "String"
+        attribute "lastpin", "String"
+        attribute "lastpinstatus", "String"
 		
 		command "setDisarmed"
 		command "setArmedAway"
@@ -31,7 +34,6 @@ metadata {
 		command "setArmedNight"
 		command "setExitDelay", ['number']
 		command "setEntryDelay", ['number']
-		command "testCmd"
 		command "sendInvalidKeycodeResponse"
 		command "acknowledgeArmRequest"
 	}
@@ -61,6 +63,12 @@ metadata {
         	{
             state "default", label: 'Last Entry: ${currentValue}'
         	}	
+        standardTile("lastpinstatus", "device.lastpinstatus", decoration: "flat", width: 2, height: 2)
+        	{
+            state "default", label: 'Last Pin Status: ${currentValue}'
+            state "Accepted", label: 'Last Pin Status: ${currentValue}',backgroundColor: "#44b621"
+            state "Rejected", label: 'Last Pin Status: ${currentValue}',backgroundColor: "#d04e00" 
+        	}	
 		}
 	}	
 
@@ -76,17 +84,20 @@ def deviceNotification(keycode, armMode)
 	if (keycode=='panic')
 		{
 		devicePanic ()
-		return true;
+		sendEvent(name: "lastpin", value: "Panic", displayed: false)
+		sendEvent(name: "lastpinstaus", value: "Panic", displayed: false)
 		}
 	else
 		{
 //		log.debug "Executing 'deviceNotification' ${armMode} and pin: ${keycode}"
 		sendEvent([name: "codeEntered", value: keycode as String, data: armMode as String, 
 					isStateChange: true, displayed: false])
+		sendEvent(name: "lastpin", value: keycode, displayed: false)
+		sendEvent(name: "lastpinstatus", value: "Received", displayed: false)
 		}
 
 	def lastUsed = formatLocalTime(now())
-	sendEvent(name: "lastUsed", value: lastUsed, displayed: false)
+	sendEvent(name: "lastUsed", value: lastUsed, displayed: false)	
 	}
 
 
@@ -131,9 +142,18 @@ def setExitDelay(delay)
 	setAttributes("ExitDelay")
 	}
 
-def testCmd() {}
-def sendInvalidKeycodeResponse() {}
-def acknowledgeArmRequest(armMode){}
+def sendInvalidKeycodeResponse() 
+	{
+	sendEvent(name: "lastpinstatus", value: "Rejected", displayed: false)
+	}
+
+def acknowledgeArmRequest(armMode)
+	{
+	if (armMode <  0 || armMode > 3)
+		sendEvent(name: "lastpinstatus", value: "Rejected", displayed: false)
+	else
+		sendEvent(name: "lastpinstatus", value: "Accepted", displayed: false)
+	}
 
 def setAttributes (armModex)
 //	Update local device attributes when commands are received from SHM Delay or others)
