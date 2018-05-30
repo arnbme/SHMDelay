@@ -59,15 +59,13 @@ metadata {
                 attributeState("default", label:'Updated: ${currentValue}')
             	}
         	}
-        valueTile("lastuse", "device.lastUsed", decoration: "flat", width: 6, height: 2) 
+        valueTile("lastuse", "device.lastUsed", decoration: "flat", width: 4, height: 2) 
         	{
             state "default", label: 'Last Entry: ${currentValue}'
         	}	
-        standardTile("lastpinstatus", "device.lastpinstatus", decoration: "flat", width: 2, height: 2)
+        valueTile("lastpinstatus", "device.lastpinstatus", decoration: "flat", width: 2, height: 2)
         	{
             state "default", label: 'Last Pin Status: ${currentValue}'
-            state "Accepted", label: 'Last Pin Status: ${currentValue}',backgroundColor: "#44b621"
-            state "Rejected", label: 'Last Pin Status: ${currentValue}',backgroundColor: "#d04e00" 
         	}	
 		}
 	}	
