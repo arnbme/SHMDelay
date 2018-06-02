@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Jun 01, 2018 v2.0.8  Add logic to queue pinstatus, ST status and ST mode for sse display in keypad.html			
  *  May 29, 2018 v2.0.7  Add logic to KeypadLightHandler to process simulated keypads so DTH armMode is properly set
  *							Split original adding function KeypadLighton
  *  May 28, 2018 v2.0.7  Allow GlobalKeypadControl to be set when no real Keypads are defined
@@ -73,6 +74,8 @@
  *
  */
 
+include 'asynchttp_v1'
+
 definition(
     name: "SHM Delay",
     namespace: "arnbme",
@@ -91,7 +94,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.7";
+	return "2.0.8";
 	}
 def main()
 	{
@@ -253,7 +256,6 @@ def initialize()
 	subscribe(location, "alarmSystemStatus", verify_version)
 	verify_version()
 	}	
-
 //  --------------------------Keypad support added Mar 02, 2018 V2-------------------------------
 /*				Basic location modes are Home, Night, Away. This can be very confusing
 Xfinity			Default mode
@@ -402,7 +404,6 @@ def keypadCodeHandler(evt)
 						break
 					case 'Piston':
 						try {
-							include 'asynchttp_v1'
 							def params = [uri: it.thepinpiston]
 //							def params = [uri: "https://www.google.com"]		//use to test
 							asynchttp_v1.get('getResponseHandler', params)
@@ -440,11 +441,13 @@ def keypadCodeHandler(evt)
 	if (badPin)
 		{
 		keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
+		acknowledgeArmRequest(4,keypad);
 /*
 **		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
 			{
 			keypad.acknowledgeArmRequest(4)			//sounds a very long beep
+			acknowledgeArmRequest(4,keypad);
 			}
 		else
 			{
@@ -454,10 +457,12 @@ def keypadCodeHandler(evt)
 	    	if (atomicState.badpins >= globalBadpins)
 	    		{
 				keypad.acknowledgeArmRequest(4)		//sounds a very long beep
+				acknowledgeArmRequest(4,keypad);
 				atomicState.badpins = 0
     			}
 			else
 				keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
+				acknowledgeArmRequest(4,keypad);
     		}	
 */		return;
  		}
@@ -471,6 +476,7 @@ def keypadCodeHandler(evt)
 		}
 		
 	keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
+	acknowledgeArmRequest(modeEntered,keypad);
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 //	atomicState.badpins=0		//reset badpin count
 	def armModes=['Home','Stay','Night','Away']
@@ -486,6 +492,78 @@ def keypadCodeHandler(evt)
 	sendNotificationEvent(message)
 	}
 
+def acknowledgeArmRequest(armMode,keypad)
+//	Post the status of the pin to the shmdelay_oauth db table
+	{
+//	log.debug "acknowledgeArmRequest entererd ${keypad?.getTypeName()} ${keypad.name}"
+	if (keypad?.getTypeName()!="Internet Keypad")
+		{return false}
+//	keypad.properties.each { k,v ->	log.debug "${k}: ${v}"}
+	def pinstatus
+	if (armMode <  0 || armMode > 3)
+		pinstatus="Rejected"
+	else
+		pinstatus ="Accepted"
+	def uri='https://www.arnb.org/shmdelay/qsse.php'
+	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
+	simKeypadDevices.each
+		{
+		
+		if (it.simkeypad.name == keypad.name)
+			{
+			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
+			uri+='&p='+ pinstatus
+//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+			try {
+				asynchttp_v1.get('ackResponseHandler', [uri: uri])
+				}
+			catch (e)
+				{
+				log.debug "qsse.php Execution failed ${e}"
+				}
+			}
+		}	
+	}
+
+def qsse_status_mode(status,mode)
+//	store the status of the ST status and mode to the shmdelay_oauth db table for all simulated keypads
+	{
+	def st_status=status
+	if (!st_status)
+		st_status = location.currentState("alarmSystemStatus").value
+	if (st_status=="off")
+		st_status="Disarmed"
+	else
+		st_status="Armed%20("+st_status+")"	//need to base64 to get this to send
+	def st_mode=mode
+	if (!st_mode)
+		st_mode = location.currentMode
+	def uri
+	findAllChildAppsByName('SHM Delay Simkypd Child').each
+		{
+		if (it.getInstallationState()=='COMPLETE')
+			{
+			uri='https://www.arnb.org/shmdelay/qsse.php'
+			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
+			uri+='&s='+ st_status
+			uri+='&m='+ st_mode
+//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+			try {
+				asynchttp_v1.get('ackResponseHandler', [uri: uri])
+				}
+			catch (e)
+				{
+				log.debug "qsse.php Execution failed ${e}"
+				}
+			}
+		}	
+	}
+
+def ackResponseHandler(response, data)
+	{
+    if(response.getStatus() != 200)
+    	sendNotificationEvent("SHM Delay qsse.php HTTP Error = ${response.getStatus()}")
+	}
 
 def execRoutine(aMap) 
 //	Execute default SmartHome Monitor routine, setting ST AlarmStatus and SHM Mode
@@ -626,6 +704,7 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		if (alarmstatus != theStatus)
 			setSHM(theStatus)
 		}	
+	qsse_status_mode(theStatus,theMode)
 	}
 
 def keypadLightHandler(evt)						//set the Keypad lights
@@ -888,13 +967,13 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
     log.debug "${uri}"
     
 	try {
-		include 'asynchttp_v1'
 		asynchttp_v1.get('versiongetResponseHandler', [uri: uri])
 		}
 	catch (e)
 		{
 		log.debug "Execution failed ${e}"
 		}
+	qsse_status_mode(evt.value,false)
 	}	
 	
 //	Process response from async execution of version test to arnb.org

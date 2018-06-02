@@ -23,7 +23,7 @@
  *	Updates by Barry A. Burke (storageanarchy@gmail.com) 2016, 2017, & 2018
  *	All of the unused coded was removed, not much left. It was going to be a service manager, but ended up as a Smartapp
  *  
- *	May 25, 2018 v1.0.0 Convert to SHMDelay child app 
+ *	Jun 02, 2018 v1.0.1 Add function getAtomic used by parent to get atomicState information, otherwise not possible 
  *	May 25, 2018 v1.0.0 Convert to SHMDelay child app 
  *	May 23, 2018 v1.0.0 Strip out all unused code, set version to 1.0.0
  *						prepare for initial Beta release
@@ -33,7 +33,7 @@ import groovy.json.JsonOutput
 
 def version()
 	{
-	return "1.0.0";
+	return "1.0.1";
 	}
 def VersionTitle() 
 	{
@@ -72,12 +72,12 @@ mappings
 def api_pinpost() 
 	{
     def String cmd = params.command
-	log.debug "api-keypost command: $cmd"
+//	log.debug "api-keypost command: $cmd"
 	if (cmd.matches("([0-3][0-9]{4})"))		
 		{
 		def keycode = cmd.substring(1)
 		def armMode = cmd.substring(0,1)
-		log.debug "valid command: ${armMode} and pin: ${keycode}"
+		log.debug "valid command: ${armMode} and pin received"
 		simkeypad.deviceNotification(keycode, armMode)		//create an event in simulated keypad DTH	
 //		log.debug "returned from simkeypad"
 		}
@@ -132,9 +132,9 @@ def pageOne()
 			try 
 				{
 				createAccessToken()		//seems to store into atomicState.accessToken along with state.accessToken
-				revokeAccessToken()
+				revokeAccessToken()		//something weird going on with this
 				atomicState.accessToken=null
-				state.remove("accessToken")
+				state.remove("accessToken")	//do this or the atomicState.accessToken test works below. WTF
 				}
 			catch(Exception e)
 				{
@@ -358,4 +358,5 @@ private def getServerUrl()          { return "https://graph.api.smartthings.com"
 private def getShardUrl()           { return getApiServerUrl() }
 private def getCallbackUrl()        { return "${serverUrl}/oauth/callback" }
 private def getBuildRedirectUrl() 	{ return "${serverUrl}/oauth/initialize?appId=${app.id}&access_token=${atomicState.accessToken}&apiServerUrl=${shardUrl}"}
-
+def getAtomic(field_name)
+	{return atomicState[field_name]}	//allow parent to get atomic data from child
