@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jun 03	2018 v2.0.5  Show Entry Delay on simulated keypad. 
  *	May 30	2018 v2.0.4  True Night Flag working in reverse of specification. 
  *							modify doorsOpensHandler to correctly set armedNight or armedStay in currKeypadMode 
  *	May 26	2018 v2.0.3  Editing crashed processing ikypd profile, adjust logic
@@ -138,7 +139,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.4";
+	return "2.0.5";
 	}
 	
 def pageZeroVerify()
@@ -912,6 +913,7 @@ def prepare_to_soundalarm(shmtruedelay)
 					{it.setEntryDelay(theentrydelay)}
 				}
 			}
+		parent.qsse_status_mode(false,"Entry%20Delay")
 		}	
 	else
 		{
@@ -981,12 +983,14 @@ def soundalarm(data)
 			thesimcontact.close([delay: 2000])
 			log.debug "true entry delay alarm rearmed"	
 			thesimcontact.open([delay:2000])
+			parent.qsse_status_mode(false,"**Intrusion**")
 			}
 		else	
 			{
 			thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
 			log.debug "alarm triggered"	
 			thesimcontact.open()
+			parent.qsse_status_mode(false,"**Intrusion**")
 			}
 //		Aug 19, 2017 issue optional intrusion notificaion messages
 		if (parent?.globalIntrusionMsg)

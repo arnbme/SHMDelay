@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Jun 03, 2018 v2.0.8  Show exit delay on internet keypad, and Panic when triggered
+ *							When exit delay triggered by internet keypad sound exit delay on all real keypads
  *  Jun 01, 2018 v2.0.8  Add logic to queue pinstatus, ST status and ST mode for sse display in keypad.html			
  *  May 29, 2018 v2.0.7  Add logic to KeypadLightHandler to process simulated keypads so DTH armMode is properly set
  *							Split original adding function KeypadLighton
@@ -486,6 +488,15 @@ def keypadCodeHandler(evt)
 			{
 			keypad.setExitDelay(globalKeypadExitDelay)
 			runIn(globalKeypadExitDelay, execRoutine, aMap)
+			qsse_status_mode(false,"Exit%20Delay")
+//			When setting from an internet keypad, trigger all keypads for an exit delay
+			if (keypad?.getTypeName()=="Internet Keypad")
+				{
+				globalKeypadDevices.each
+					{
+					it.setExitDelay(globalKeypadExitDelay)
+					}
+				}
 			}
 		else
 			{execRoutine(aMap.data)}	
@@ -871,6 +882,8 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 				it.thesimcontact.close()		//trigger an intrusion		
 				it.thesimcontact.open()
 				it.thesimcontact.close([delay: 4000])
+				qsse_status_mode(false,"**Panic**")
+
 				}
 			return true							//this ends the **find** loop does not return to system
 			}
