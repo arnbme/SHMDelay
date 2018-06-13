@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Jun 13, 2018 v2.0.9  Add logic to process pin restrictions by mode and device
  *  Jun 03, 2018 v2.0.8  Show exit delay on internet keypad, and Panic when triggered
  *							When exit delay triggered by internet keypad sound exit delay on all real keypads
  *  Jun 01, 2018 v2.0.8  Add logic to queue pinstatus, ST status and ST mode for sse display in keypad.html			
@@ -96,7 +97,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.8";
+	return "2.0.9";
 	}
 def main()
 	{
@@ -297,6 +298,8 @@ def keypadCodeHandler(evt)
 	def userName=false;
 	def badPin=true;
 	def error_message=""
+	def info_message=""
+	def pinKeypadsOK=false;
 
 //	Try to find a matching pin in the pin child apps	
 	def userApps = getChildApps()		//gets all completed child apps
@@ -374,6 +377,33 @@ def keypadCodeHandler(evt)
 						error_message = keypad.displayName + " time out of range with pin for " + it.theusername
 					}
 				}
+				
+//	Process pin mode and device restrictions
+			if (error_message=="" && it.pinRestricted)
+				{
+				if (it.pinModes)
+					{
+					if (!it.pinModes.contains(location.mode))
+						error_message = keypad.displayName + " mode: "+ location.mode + " invalid with pin for " + it.theusername
+					}
+				if (error_message=="" && (it.pinRealKeypads || it.pinSimKeypads))
+					{
+//					this wont work sigh if (it.pinSimKeypads.contains(keypad.displayName))
+					it.pinRealKeypads.each
+						{kp ->
+						if (kp.displayName == keypad.displayName)
+							pinKeypadsOK=true
+						}
+					it.pinSimKeypads.each
+						{kp ->
+						if (kp.displayName == keypad.displayName)
+							pinKeypadsOK=true
+						}
+					if (!pinKeypadsOK) 	
+						error_message = keypad.displayName + " invalid device with pin for " + it.theusername
+					}
+				}	
+
 //			Verify pin usage
 			if (error_message=="")
 				{
@@ -409,7 +439,7 @@ def keypadCodeHandler(evt)
 							def params = [uri: it.thepinpiston]
 //							def params = [uri: "https://www.google.com"]		//use to test
 							asynchttp_v1.get('getResponseHandler', params)
-							error_message = keypad.displayName + " Piston executed with pin for " + it.theusername
+							info_message = keypad.displayName + " Piston executed with pin for " + it.theusername
 							}
 						catch (e)
 							{
@@ -431,8 +461,13 @@ def keypadCodeHandler(evt)
 
 	if (error_message!="")									// put out any messages to notification log
 		{
-//		log.debug error_message
+		badPin=true		
 		sendNotificationEvent(error_message)
+		}
+	else	
+	if (info_message!="")									
+		{
+		sendNotificationEvent(info_message)
 		}
 		
 //	Was pin not found
