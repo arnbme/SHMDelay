@@ -20,6 +20,19 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Jun 13, 2018 v2.0.9  Add logic to process pin restrictions by mode and device
+ *  Jun 03, 2018 v2.0.8  Show exit delay on internet keypad, and Panic when triggered
+ *							When exit delay triggered by internet keypad sound exit delay on all real keypads
+ *  Jun 01, 2018 v2.0.8  Add logic to queue pinstatus, ST status and ST mode for sse display in keypad.html			
+ *  May 29, 2018 v2.0.7  Add logic to KeypadLightHandler to process simulated keypads so DTH armMode is properly set
+ *							Split original adding function KeypadLighton
+ *  May 28, 2018 v2.0.7  Allow GlobalKeypadControl to be set when no real Keypads are defined
+ *							fixes problem when using simulated keypads without a real keypad
+ *  May 25, 2018 v2.0.7  Add Simulated Keypad Child App
+ *  May 23, 2018 v2.0.6  Add Simulated Panic support. (deprecated, moved the simulated keypad childapp)
+ *  Apr 30, 2018 v2.0.6  Add Simulated keypad support.(deprecated, moved the simulated keypad childapp)
+ *  Apr 30, 2018 v2.0.5  Add Version verification when updating.
+ *						 Add subscribe for alarm state change that executes Version verification
  *  Apr 25, 2018 v2.0.4  Add Dynamic Version number;
  *						 Use user defined armed (home) light mode for 3400 keypads defined in SHm Delay Modefix
  *						 Add globalDuplicateMotionSensors used by SHM Delay Child to implement logic to handle
@@ -64,6 +77,8 @@
  *
  */
 
+include 'asynchttp_v1'
+
 definition(
     name: "SHM Delay",
     namespace: "arnbme",
@@ -82,7 +97,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.4";
+	return "2.0.9";
 	}
 def main()
 	{
@@ -115,6 +130,10 @@ def main()
 				section 
 					{
 					app(name: "UserProfile", appName: "SHM Delay User", namespace: "arnbme", title: "Create A New User Profile", multiple: true)
+					}
+				section 
+					{
+					app(name: "SimKypdProfile", appName: "SHM Delay Simkypd Child", namespace: "arnbme", title: "Create A New Sim Keypad Profile", multiple: true)
 					}
 				}	
 			section
@@ -188,8 +207,8 @@ def globalsPage()
 				{
 				def actions = location.helloHome?.getPhrases()*.label
 				actions?.sort()
-				input "globalKeypadDevices", "device.CentraliteKeypad", required: true, multiple: true,
-					title: "One or more Keypads used to arm and disarm SHM"
+				input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true,
+					title: "Real Keypads used to arm and disarm SHM"
 				input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
 					title: "True exit delay in seconds when arming in Away mode from any keypad. range 0-90, default:30"
 				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
@@ -237,8 +256,9 @@ def initialize()
 		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
 		    }
 		}
+	subscribe(location, "alarmSystemStatus", verify_version)
+	verify_version()
 	}	
-
 //  --------------------------Keypad support added Mar 02, 2018 V2-------------------------------
 /*				Basic location modes are Home, Night, Away. This can be very confusing
 Xfinity			Default mode
@@ -278,6 +298,8 @@ def keypadCodeHandler(evt)
 	def userName=false;
 	def badPin=true;
 	def error_message=""
+	def info_message=""
+	def pinKeypadsOK=false;
 
 //	Try to find a matching pin in the pin child apps	
 	def userApps = getChildApps()		//gets all completed child apps
@@ -355,6 +377,33 @@ def keypadCodeHandler(evt)
 						error_message = keypad.displayName + " time out of range with pin for " + it.theusername
 					}
 				}
+				
+//	Process pin mode and device restrictions
+			if (error_message=="" && it.pinRestricted)
+				{
+				if (it.pinModes)
+					{
+					if (!it.pinModes.contains(location.mode))
+						error_message = keypad.displayName + " mode: "+ location.mode + " invalid with pin for " + it.theusername
+					}
+				if (error_message=="" && (it.pinRealKeypads || it.pinSimKeypads))
+					{
+//					this wont work sigh if (it.pinSimKeypads.contains(keypad.displayName))
+					it.pinRealKeypads.each
+						{kp ->
+						if (kp.displayName == keypad.displayName)
+							pinKeypadsOK=true
+						}
+					it.pinSimKeypads.each
+						{kp ->
+						if (kp.displayName == keypad.displayName)
+							pinKeypadsOK=true
+						}
+					if (!pinKeypadsOK) 	
+						error_message = keypad.displayName + " invalid device with pin for " + it.theusername
+					}
+				}	
+
 //			Verify pin usage
 			if (error_message=="")
 				{
@@ -387,11 +436,10 @@ def keypadCodeHandler(evt)
 						break
 					case 'Piston':
 						try {
-							include 'asynchttp_v1'
 							def params = [uri: it.thepinpiston]
 //							def params = [uri: "https://www.google.com"]		//use to test
 							asynchttp_v1.get('getResponseHandler', params)
-							error_message = keypad.displayName + " Piston executed with pin for " + it.theusername
+							info_message = keypad.displayName + " Piston executed with pin for " + it.theusername
 							}
 						catch (e)
 							{
@@ -413,8 +461,13 @@ def keypadCodeHandler(evt)
 
 	if (error_message!="")									// put out any messages to notification log
 		{
-//		log.debug error_message
+		badPin=true		
 		sendNotificationEvent(error_message)
+		}
+	else	
+	if (info_message!="")									
+		{
+		sendNotificationEvent(info_message)
 		}
 		
 //	Was pin not found
@@ -425,11 +478,13 @@ def keypadCodeHandler(evt)
 	if (badPin)
 		{
 		keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
+		acknowledgeArmRequest(4,keypad);
 /*
 **		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
 			{
 			keypad.acknowledgeArmRequest(4)			//sounds a very long beep
+			acknowledgeArmRequest(4,keypad);
 			}
 		else
 			{
@@ -439,10 +494,12 @@ def keypadCodeHandler(evt)
 	    	if (atomicState.badpins >= globalBadpins)
 	    		{
 				keypad.acknowledgeArmRequest(4)		//sounds a very long beep
+				acknowledgeArmRequest(4,keypad);
 				atomicState.badpins = 0
     			}
 			else
 				keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
+				acknowledgeArmRequest(4,keypad);
     		}	
 */		return;
  		}
@@ -456,6 +513,7 @@ def keypadCodeHandler(evt)
 		}
 		
 	keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
+	acknowledgeArmRequest(modeEntered,keypad);
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 //	atomicState.badpins=0		//reset badpin count
 	def armModes=['Home','Stay','Night','Away']
@@ -465,12 +523,93 @@ def keypadCodeHandler(evt)
 			{
 			keypad.setExitDelay(globalKeypadExitDelay)
 			runIn(globalKeypadExitDelay, execRoutine, aMap)
+			qsse_status_mode(false,"Exit%20Delay")
+//			When setting from an internet keypad, trigger all keypads for an exit delay
+			if (keypad?.getTypeName()=="Internet Keypad")
+				{
+				globalKeypadDevices.each
+					{
+					it.setExitDelay(globalKeypadExitDelay)
+					}
+				}
 			}
 		else
 			{execRoutine(aMap.data)}	
 	sendNotificationEvent(message)
 	}
 
+def acknowledgeArmRequest(armMode,keypad)
+//	Post the status of the pin to the shmdelay_oauth db table
+	{
+//	log.debug "acknowledgeArmRequest entererd ${keypad?.getTypeName()} ${keypad.name}"
+	if (keypad?.getTypeName()!="Internet Keypad")
+		{return false}
+//	keypad.properties.each { k,v ->	log.debug "${k}: ${v}"}
+	def pinstatus
+	if (armMode <  0 || armMode > 3)
+		pinstatus="Rejected"
+	else
+		pinstatus ="Accepted"
+	def uri='https://www.arnb.org/shmdelay/qsse.php'
+	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
+	simKeypadDevices.each
+		{
+		
+		if (it.simkeypad.name == keypad.name)
+			{
+			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
+			uri+='&p='+ pinstatus
+//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+			try {
+				asynchttp_v1.get('ackResponseHandler', [uri: uri])
+				}
+			catch (e)
+				{
+				log.debug "qsse.php Execution failed ${e}"
+				}
+			}
+		}	
+	}
+
+def qsse_status_mode(status,mode)
+//	store the status of the ST status and mode to the shmdelay_oauth db table for all simulated keypads
+	{
+	def st_status=status
+	if (!st_status)
+		st_status = location.currentState("alarmSystemStatus").value
+	if (st_status=="off")
+		st_status="Disarmed"
+	else
+		st_status="Armed%20("+st_status+")"	//need to base64 to get this to send
+	def st_mode=mode
+	if (!st_mode)
+		st_mode = location.currentMode
+	def uri
+	findAllChildAppsByName('SHM Delay Simkypd Child').each
+		{
+		if (it.getInstallationState()=='COMPLETE')
+			{
+			uri='https://www.arnb.org/shmdelay/qsse.php'
+			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
+			uri+='&s='+ st_status
+			uri+='&m='+ st_mode
+//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+			try {
+				asynchttp_v1.get('ackResponseHandler', [uri: uri])
+				}
+			catch (e)
+				{
+				log.debug "qsse.php Execution failed ${e}"
+				}
+			}
+		}	
+	}
+
+def ackResponseHandler(response, data)
+	{
+    if(response.getStatus() != 200)
+    	sendNotificationEvent("SHM Delay qsse.php HTTP Error = ${response.getStatus()}")
+	}
 
 def execRoutine(aMap) 
 //	Execute default SmartHome Monitor routine, setting ST AlarmStatus and SHM Mode
@@ -611,21 +750,43 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		if (alarmstatus != theStatus)
 			setSHM(theStatus)
 		}	
+	qsse_status_mode(theStatus,theMode)
 	}
 
 def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
+	def simkeypad
 	log.debug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
-	def currkeypadmode=""
+	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
+	simKeypadDevices.each
+		{
+		if (it?.getInstallationState()!='COMPLETE')
+			{
+			log.debug "${it.keypad} warning device not complete, please save the profile"
+			}
+		else
+			{
+			simkeypad=it.simkeypad		//get device 
+			keypadLighton(evt,theMode,simkeypad)
+			}
+		}	
 	globalKeypadDevices.each
 		{ keypad ->
-		if (theMode == 'Home')					//Alarm is off
-			{keypad.setDisarmed()}
-		else
-		if (theMode == 'Stay')
-			{
-			keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
+			keypadLighton(evt,theMode,keypad)
+		}
+	}
+
+def	keypadLighton(evt,theMode,keypad)
+	{
+//	log.debug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+	def currkeypadmode=""
+	if (theMode == 'Home')					//Alarm is off
+		{keypad.setDisarmed()}
+	else
+	if (theMode == 'Stay')
+		{
+		keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
 //			deprecated on Apr 23, 2018		
 //			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
 //				{keypad.setArmedNight()}
@@ -636,34 +797,34 @@ def keypadLightHandler(evt)						//set the Keypad lights
 //				{}
 //			else
 //				{keypad.setArmedStay()}				//lights Partial light on Iris
-			}
-		else
-		if (theMode == 'Night')					//Iris has no Night light set Partial on	
-			{
-			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-				{
-				if (evt.source=="keypad")
-					{keypad.setArmedNight()}
-				else
-					{
-					currkeypadmode = keypad?.currentValue("armMode")
-					log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
-					if (currkeypadmode =="armedStay")
-						{
-//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
-						}
-					else
-						{keypad.setArmedNight()}
-					}
-				}	
-			else	
-				{keypad.setArmedStay()}
-			}	
-		else
-		if (theMode == 'Away')					//lights ON light on Iris
-			{keypad.setArmedAway()}
 		}
-	}	
+	else
+	if (theMode == 'Night')					//Iris has no Night light set Partial on	
+		{
+		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 
+			keypad?.getTypeName()=="Internet Keypad")
+			{
+			if (evt.source=="keypad")
+				{keypad.setArmedNight()}
+			else
+				{
+				currkeypadmode = keypad?.currentValue("armMode")
+				log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
+				if (currkeypadmode =="armedStay")
+					{
+//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+					}
+				else
+					{keypad.setArmedNight()}
+				}
+			}	
+		else	
+			{keypad.setArmedStay()}
+		}	
+	else
+	if (theMode == 'Away')					//lights ON light on Iris
+		{keypad.setArmedAway()}
+	}
 
 def keypadPanicHandler(evt)
 	{
@@ -756,6 +917,8 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 				it.thesimcontact.close()		//trigger an intrusion		
 				it.thesimcontact.open()
 				it.thesimcontact.close([delay: 4000])
+				qsse_status_mode(false,"**Panic**")
+
 				}
 			return true							//this ends the **find** loop does not return to system
 			}
@@ -803,3 +966,74 @@ def getResponseHandler(response, data)
     if(response.getStatus() != 200)
     	sendNotificationEvent("SHM Delay Piston HTTP Error = ${response.getStatus()}")
 	}
+
+	
+def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
+	{
+	def uri='https://www.arnb.org/shmdelay/'
+//	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
+//	uri+='&lon='+location.longitude
+	uri+='?hub='+location.hubs[0].encodeAsBase64()   //May have quotes and other stuff 
+	uri+='&zip='+location.zipCode
+	uri+='&cnty='+location.country
+    uri+='&eui='+location.hubs[0].zigbeeEui
+	def childApps = getChildApps()		//gets all completed child apps
+	def vdelay=version()
+	def vchild=''
+	def vmodefix=''
+	def vuser=''
+	childApps.find 						//change from each to find to speed up the search
+		{
+//		log.debug "child ${it.getName()}"
+		if (vchild>'' && vmodefix>'' && vuser>'')
+			return true
+		else
+		if (it.getName()=="SHM Delay Child")	
+			{
+			if (vchild=='')
+				vchild=it?.version()
+			return false
+			}	
+		else
+		if (it.getName()=="SHM Delay ModeFix")				//should only have 1 profile
+			{
+			vmodefix=it?.version()
+			return false
+			}	
+		else
+		if (it.getName()=="SHM Delay User")	
+			{
+			if (vuser=='')
+				vuser=it?.version()
+			return false
+			}	
+		}
+	uri+="&p=${vdelay}"
+    uri+="&c=${vchild}"
+    uri+="&m=${vmodefix}"
+    uri+="&u=${vuser}"
+    log.debug "${uri}"
+    
+	try {
+		asynchttp_v1.get('versiongetResponseHandler', [uri: uri])
+		}
+	catch (e)
+		{
+		log.debug "Execution failed ${e}"
+		}
+	qsse_status_mode(evt.value,false)
+	}	
+	
+//	Process response from async execution of version test to arnb.org
+def versiongetResponseHandler(response, data)
+	{
+    if(response.getStatus() == 200)
+    	{
+		def results = response.getJson()
+		log.debug "SHM Delay good response ${results.msg}"
+		if (results.msg != 'OK')
+    		sendNotificationEvent("${results.msg}")
+        }
+    else
+    	sendNotificationEvent("SHM Delay Version Check, HTTP Error = ${response.getStatus()}")
+    }		

@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Jun 13, 2018 v0.0.2  Add restrictions by mode and device, change pageThree to PageFour, add pageThree restrictions
  *	Apr 30, 2018 v0.0.1  Add dynamic Version Number to description and PageThree
  *	Mar 18, 2018 v0.0.0  Add Panic pin usage type 
  *	Mar 01, 2018 v0.0.0  Create 
@@ -40,12 +41,14 @@ preferences {
 	page(name: "pageOneVerify")
 	page(name: "pageTwo", nextPage: "pageTwoVerify")		//schedule page
 	page(name: "pageTwoVerify")
-	page(name: "pageThree")		//recap page when everything is valid. No changes allowed.
+	page(name: "pageThree", nextPage: "pageThreeVerify")	//Restrictions page
+	page(name: "pageThreeVerify")
+	page(name: "pageFour")		//recap page when everything is valid. No changes allowed.
 	}
 
 def version()
 	{
-	return "0.0.1";
+	return "0.0.2";
 	}
 
 def pageZeroVerify()
@@ -86,6 +89,8 @@ def pageOne()
 				}
 			input "pinScheduled", "bool", required: false, defaultValue:false,   
 				title: "Date, Day or Time Scheduled?"
+			input "pinRestricted", "bool", required: false, defaultValue:false,   
+				title: "Restrict use by mode or to device?"
 			input "theuserpin", "text", required: true, 
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
@@ -186,7 +191,10 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (pinScheduled)
 			pageTwo()
 		else
+		if (pinRestricted)
 			pageThree()
+		else
+			pageFour()
 		}
 	}	
 
@@ -320,8 +328,11 @@ def pageTwoVerify() 					//edit schedule data, go to pageThree when valid
 		state.error_data=error_data.trim()
 		pageTwo()
 		}
-	else	
+	else
+	if (pinRestriced)
 		pageThree()
+	else	
+		pageFour()
 	}
 
 //	verify and format start and end date standard format is Jan 1, 2018
@@ -349,10 +360,44 @@ def dtEdit(dt)
 		}
 	}	
 
-//	This page summarizes the data prior to save	
-def pageThree(error_data)
+def pageThree() 		//added Jun 13, 2018
 	{
-	dynamicPage(name: "pageTwo", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
+	dynamicPage(name: 'pageThree', title: 'Mode and Device Restriction Rules, all fields are optional') 
+		{
+		section
+			{
+			if (state.error_data)
+				{
+				paragraph "${state.error_data}"
+				state.remove("error_data")
+				}
+			input "pinModes", "mode", required: false, multiple: true,
+					title: 'Allow only when mode is'
+			input "pinRealKeypads", "device.CentraliteKeypad", required: false, multiple: true,
+					title: "Real Keypads where pin may be used, null = all (Optional)"
+			input "pinSimKeypads", "device.InternetKeypad", required: false, multiple: true,
+					title: "Simulated Keypads where pin may be used, null = all (Optional)"
+			}
+		}
+	}
+	
+def pageThreeVerify() 					//edit schedule data, go to pageThree when valid
+	{
+	def error_data = ""
+	if (error_data!="")
+		{
+		state.error_data=error_data.trim()
+		pageThree()
+		}
+	else	
+		pageFour()
+	}
+
+
+//	This page summarizes the data prior to save	
+def pageFour(error_data)
+	{
+	dynamicPage(name: "pageFour", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
 		{
 		section
 			{
@@ -439,7 +484,16 @@ def pageThree(error_data)
 						dtbetween=false
 					paragraph "Valid Until: $pinEndDt. Currently: $dtbetween" 
 					}
-				}		
+				}
+			if (pinRestricted)
+				{
+				if (pinModes)
+					paragraph "Pin valid only in these modes: ${pinModes}"
+				if (pinRealKeypads)
+					paragraph "Pin valid only on these real devices: ${pinRealKeypads}"
+				if (pinSimKeypads)
+					paragraph "Pin valid only on these simulated devices: ${pinSimKeypads}"
+				}	
 			paragraph "${app.getLabel()}\nModule SHM Delay User ${version()}"
 			}	
 		}
