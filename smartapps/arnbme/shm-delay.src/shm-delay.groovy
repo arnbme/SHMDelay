@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *  Jun 16, 2018 v2.1.0  Fix Error saving page caused by lack of event on call to veerify_version
+ *							add dummy_evt to call
  *  Jun 13, 2018 v2.0.9  Add logic to process pin restrictions by mode and device
  *  Jun 03, 2018 v2.0.8  Show exit delay on internet keypad, and Panic when triggered
  *							When exit delay triggered by internet keypad sound exit delay on all real keypads
@@ -97,7 +99,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.9";
+	return "2.1.0";
 	}
 def main()
 	{
@@ -257,7 +259,7 @@ def initialize()
 		    }
 		}
 	subscribe(location, "alarmSystemStatus", verify_version)
-	verify_version()
+	verify_version("dummy_evt")
 	}	
 //  --------------------------Keypad support added Mar 02, 2018 V2-------------------------------
 /*				Basic location modes are Home, Night, Away. This can be very confusing
