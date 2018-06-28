@@ -22,6 +22,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jun 27	2018 v2.0.6  Add logic to trigger SHM Delay Talker exitDelay when away mode triggered by non_keypad device 
+ *	Jun 26	2018 v2.0.6  Add logic to trigger SHM Delay Talker using a location event for entryDelay 
  *	Jun 03	2018 v2.0.5  Show Entry Delay on simulated keypad. 
  *	May 30	2018 v2.0.4  True Night Flag working in reverse of specification. 
  *							modify doorsOpensHandler to correctly set armedNight or armedStay in currKeypadMode 
@@ -139,7 +141,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.5";
+	return "2.0.6";
 	}
 	
 def pageZeroVerify()
@@ -585,6 +587,35 @@ def childalarmStatusHandler(evt)
 		}	
 	if (theAlarm == "night")	//bad AlarmState processed once by Modefix thats enough
 		{return false}		// and we get it almost immediately
+	
+//	Jun 27, 2018 add logic to sendLocationEvent for SHM Delay Talk when away mode triggered by non keypad device
+	def alarm = location.currentState("alarmSystemStatus")
+	def lastupdt = alarm?.date.time
+	def alarmSecs = Math.round( lastupdt / 1000)
+	def kSecs=0					
+	def kMap
+	def locevent = [name:"shmdelaytalk", value: "exitDelayNkypd", isStateChange: true,
+		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+		data: theexitdelay]
+	if (theAlarm == 'away' && theexitdelay > 0)
+		{
+		if (parent?.globalKeypadControl)
+			{
+			kMap=parent?.atomicState.kMap
+			kSecs = Math.round(kMap.dtim / 1000)
+//			log.debug "Talker fields $kSecs $alarmSecs $theexitdelay" 
+			if (alarmSecs - kSecs > theexitdelay+4)		//allow 4 second delay for ST delays due to cloud and internet
+				{
+				sendLocationEvent(locevent)
+//				log.debug "Away Talker from non keypad triggered"
+				}
+			}
+		else	
+			{
+			sendLocationEvent(locevent)
+			}
+		}	
+
 	def theMode = location.currentMode	
 	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
 	
@@ -949,6 +980,11 @@ def prepare_to_soundalarm(shmtruedelay)
 	def now = new Date()
 	def runTime = new Date(now.getTime() + (theentrydelay * 1000))
 	runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt, shmtruedelay: shmtruedelay], overwrite: false]) 
+	def locevent = [name:"shmdelaytalk", value: "entryDelay", isStateChange: true,
+    		displayed: true, descriptionText: "Issue entry delay talk event", linkText: "Issue entry delay talk event",
+    		data: theentrydelay]
+    sendLocationEvent(locevent)
+//	log.debug "sent location event for shmdelaytalk"
 	}
 
 //	wait for door to open in themotiondelay seconds 

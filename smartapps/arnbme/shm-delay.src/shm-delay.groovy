@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jun 27	2018 v2.1.1  Add logic to trigger all SHM Delay Talker Child profiles
+ *							with exitDelay when keypad enters exitdelay
  *  Jun 16, 2018 v2.1.0  Fix Error saving page caused by lack of event on call to veerify_version
  *							add dummy_evt to call
  *  Jun 13, 2018 v2.0.9  Add logic to process pin restrictions by mode and device
@@ -99,7 +101,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.0";
+	return "2.1.1";
 	}
 def main()
 	{
@@ -138,6 +140,10 @@ def main()
 					app(name: "SimKypdProfile", appName: "SHM Delay Simkypd Child", namespace: "arnbme", title: "Create A New Sim Keypad Profile", multiple: true)
 					}
 				}	
+			section 
+				{
+				app(name: "TalkerProfile", appName: "SHM Delay Talker Child", namespace: "arnbme", title: "Create A New Talker Profile", multiple: true)
+				}
 			section
     			{
   				href(name: 'toglobalsPage', page: 'globalsPage', title: 'Globals Settings')
@@ -534,6 +540,10 @@ def keypadCodeHandler(evt)
 					it.setExitDelay(globalKeypadExitDelay)
 					}
 				}
+			def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
+    			displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+    			data: globalKeypadExitDelay]
+    		sendLocationEvent(locevent)
 			}
 		else
 			{execRoutine(aMap.data)}	
