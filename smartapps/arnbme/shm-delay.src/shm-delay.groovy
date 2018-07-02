@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jul 02	2018 v2.1.2  Add code to verify simkypd and talker modules
  *	Jun 27	2018 v2.1.1  Add logic to trigger all SHM Delay Talker Child profiles
  *							with exitDelay when keypad enters exitdelay
  *  Jun 16, 2018 v2.1.0  Fix Error saving page caused by lack of event on call to veerify_version
@@ -101,7 +102,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.1";
+	return "2.1.2";
 	}
 def main()
 	{
@@ -994,10 +995,12 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def vchild=''
 	def vmodefix=''
 	def vuser=''
+	def vkpad=''
+	def vtalk=''
 	childApps.find 						//change from each to find to speed up the search
 		{
 //		log.debug "child ${it.getName()}"
-		if (vchild>'' && vmodefix>'' && vuser>'')
+		if (vchild>'' && vmodefix>'' && vuser>''&& vkpad>''&& vtalk>'')
 			return true
 		else
 		if (it.getName()=="SHM Delay Child")	
@@ -1013,6 +1016,20 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 			return false
 			}	
 		else
+		if (it.getName()=="SHM Delay Simkypd Child")			
+			{
+			if (vkpad=='')
+				vkpad=it?.version()
+			return false
+			}	
+		else
+		if (it.getName()=="SHM Delay Talker Child")		
+			{
+			if (vtalk=='')
+				vtalk=it?.version()
+			return false
+			}	
+		else
 		if (it.getName()=="SHM Delay User")	
 			{
 			if (vuser=='')
@@ -1024,6 +1041,8 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
     uri+="&c=${vchild}"
     uri+="&m=${vmodefix}"
     uri+="&u=${vuser}"
+    uri+="&k=${vkpad}"
+    uri+="&t=${vtalk}"
     log.debug "${uri}"
     
 	try {
