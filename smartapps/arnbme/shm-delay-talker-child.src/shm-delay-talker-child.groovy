@@ -3,7 +3,7 @@
  *  Supplements Big Talker adding speech when SHMDelay enters the Exit or Entry delay time period
  *		For LanNouncer Device: Chime, TTS text, Chime
  *		For speakers (such as Sonos)  TTS text
- *	Supports multiple keypads, LanNouncer devices and speakers
+ *	Supports TTS devices and speakers
  *	When devices use differant messages, install multiple copies of this code
  *	When speakers need different volumes, install multiple copies of this code
  *
@@ -24,6 +24,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Jul 05, 2018 v1.0.1	correct non standard icon 
+ * 	Jul 04, 2018 v1.0.1	Check for non Lannouner TTS devices and when true eliminate chime command 
  *	Jun 26, 2018 V1.0.0 Create from standalone module Keypad ExitDelay Talker
  */
 definition(
@@ -33,13 +35,13 @@ definition(
     description: "(${version()}) Speak during SHM Delay Exit and Entry Delay",
     category: "My Apps",
     parent: "arnbme:SHM Delay",
-	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+    iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
+    iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
+    iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
 
 def version()
 	{
-	return "1.0.0";
+	return "1.0.1";
 	}
 
 preferences {
@@ -218,6 +220,22 @@ def TalkerHandler(evt)
 	log.debug("TalkerHandler entered, event: ${evt.value} ${evt?.data}")
 	def delaydata=evt?.data			//get the delay time 
 	def msgout
+	def nonnouncer=false
+	if (theTTS)
+		{
+		theTTS.find
+			{
+			if (it.typeName != 'LANnouncer Alerter')
+				{
+				nonnouncer=true		
+				return true		//stop searching
+				}
+			else
+				return false
+			}
+		}	
+
+
 	if (evt.value=="entryDelay" && theEntryMsg>"")
 		{
 		if (delaydata>"")
@@ -226,10 +244,15 @@ def TalkerHandler(evt)
 			msgout=theEntryMsg
 		if (theTTS)
 			{
-			theTTS.speak("@|ALARM=CHIME")
-			theTTS.speak(msgout,[delay: 1800])
-			theTTS.speak("@|ALARM=CHIME", [delay: 5000])
-			}
+			if (nonnouncer)
+				{theTTS.speak(msgout)}
+			else		
+				{
+				theTTS.speak("@|ALARM=CHIME")
+				theTTS.speak(msgout,[delay: 1800])
+				theTTS.speak("@|ALARM=CHIME", [delay: 5000])
+				}
+			}	
 		if (theSpeakers)
 			{
 			theSpeakers.playTextAndResume(msgout,theVolume)
@@ -244,9 +267,14 @@ def TalkerHandler(evt)
 			msgout=theExitMsgKypd
 		if (theTTS)
 			{
-			theTTS.speak("@|ALARM=CHIME")
-			theTTS.speak(msgout,[delay: 1800])
-			theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+			if (nonnouncer)
+				{theTTS.speak(msgout)}
+			else		
+				{
+				theTTS.speak("@|ALARM=CHIME")
+				theTTS.speak(msgout,[delay: 1800])
+				theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+				}
 			}
 		if (theSpeakers)
 			{
@@ -262,9 +290,14 @@ def TalkerHandler(evt)
 			msgout=theExitMsgNkypd
 		if (theTTS)
 			{
-			theTTS.speak("@|ALARM=CHIME", [delay : 2000])		//allows BigTalker to speak armed in away mode msg
-			theTTS.speak(msgout, [delay: 3800])
-			theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+			if (nonnouncer)
+				theTTS.speak(msgout, [delay: 2000])					//allows Bigtalker to speak armed in away mode msg
+			else		
+				{
+				theTTS.speak("@|ALARM=CHIME", [delay : 2000])		//allows BigTalker to speak armed in away mode msg
+				theTTS.speak(msgout, [delay: 3800])
+				theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+				}
 			}
 		if (theSpeakers)
 			{
