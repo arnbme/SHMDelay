@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jul 11	2018 v2.1.3  Make all keypads sound Exit Delay tones when any keypad set to Exit Delay
+ *						 Change default for Multiple Motion Sensors to True
  *	Jul 02	2018 v2.1.2  Add code to verify simkypd and talker modules
  *	Jun 27	2018 v2.1.1  Add logic to trigger all SHM Delay Talker Child profiles
  *							with exitDelay when keypad enters exitdelay
@@ -102,7 +104,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.2";
+	return "2.1.3";
 	}
 def main()
 	{
@@ -202,8 +204,8 @@ def globalsPage()
 				title: "Add 3 digit emergency call number on intrusion message?")
 			input "globalPolice", "phone", required: false, 
 				title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
-			input "globalMultipleMotion", "bool", required: true, defaultValue: false,
-				title: "Allow Multiple Motion Sensors in Delay Profile. Default: Off/False" 
+			input "globalMultipleMotion", "bool", required: true, defaultValue: true,
+				title: "Allow Multiple Motion Sensors in Delay Profile. Default: On/True" 
 			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
 				title: "Check other delay profiles when a motion sensor is defined in multiple delay profiles.\nDefault Off/False"
 			input "globalFixMode", "bool", required: true, defaultValue: false,
@@ -528,19 +530,14 @@ def keypadCodeHandler(evt)
 	def armModes=['Home','Stay','Night','Away']
 	def message = keypad.displayName + " set mode to " + armModes[modeEntered] + " with pin for " + userName
 	def aMap = [data: [codeEntered: codeEntered, armMode: armModes[modeEntered]]]
-	if (modeEntered==3 && globalKeypadExitDelay > 0)	//in away mode check if exit delay is coded for keypad
+	if (modeEntered==3 && globalKeypadExitDelay > 0)	//in away mode process Exit Delay when requested
 			{
-			keypad.setExitDelay(globalKeypadExitDelay)
+			globalKeypadDevices.each
+				{
+				it.setExitDelay(globalKeypadExitDelay)
+				}
 			runIn(globalKeypadExitDelay, execRoutine, aMap)
 			qsse_status_mode(false,"Exit%20Delay")
-//			When setting from an internet keypad, trigger all keypads for an exit delay
-			if (keypad?.getTypeName()=="Internet Keypad")
-				{
-				globalKeypadDevices.each
-					{
-					it.setExitDelay(globalKeypadExitDelay)
-					}
-				}
 			def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
     			displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
     			data: globalKeypadExitDelay]
