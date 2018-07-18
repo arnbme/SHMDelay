@@ -14,6 +14,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Jul 17, 2018 v1.0.0  Add multifunction pin allowing it to set SHM status, run a routine, and run a piston.
+ *						 Add ability to run a routine or piston based on mode entered on keypad
  *	Jun 13, 2018 v0.0.2  Add restrictions by mode and device, change pageThree to PageFour, add pageThree restrictions
  *	Apr 30, 2018 v0.0.1  Add dynamic Version Number to description and PageThree
  *	Mar 18, 2018 v0.0.0  Add Panic pin usage type 
@@ -48,7 +50,7 @@ preferences {
 
 def version()
 	{
-	return "0.0.2";
+	return "1.0.0";
 	}
 
 def pageZeroVerify()
@@ -95,20 +97,72 @@ def pageOne()
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
 				title: "User Name"
-			input "thepinusage", "enum", options:["User", "Ignore", "Disabled", "Routine", "Piston", "Panic"], 
+			input "thepinusage", "enum", options:["User", "UserRoutinePiston", "Routine", "Piston", "Panic", "Ignore", "Disabled"], 
 				required: true, title: "Pin Usage", submitOnChange: true
-			if (thepinusage == "Routine")
+			if (thepinusage == "Routine" || thepinusage == "UserRoutinePiston")
 				{
-				def actions = location.helloHome?.getPhrases()*.label
-				actions?.sort()
-				input "thepinroutine", "enum", options: actions, required: true, 
-					title: "Pin executes this Smart Home Monitor Routine"
+				def routines = location.helloHome?.getPhrases()*.label
+				def actions = []
+				routines.each
+					{
+					if (it=="Good Night!")
+						{}
+					else
+					if (it=="Goodbye!")
+						{}
+					else
+					if (it=="Good Morning!")
+						{}
+					else
+					if (it=="I'm Back!")			
+						{}
+					else
+					if (!parent?.globalKeypadControl)
+						{
+						actions << it
+						}
+					else
+					if (it==parent?.globalOff)
+						{}
+					else
+					if (it==parent?.globalStay)
+						{}
+					else
+					if (it==parent?.globalNight)
+						{}
+					else
+					if (it==parent?.globalAway)
+						{}
+					else
+						{
+						actions << it
+						}
+					}
+				if (actions.size > 0)
+					{
+					actions?.sort()
+					input "thepinroutine", "enum", options: actions, required: false, multiple: true,
+						title: "All modes executes Smart Home Monitor Routine (optional)"
+					input "thepinroutineOff", "enum", options: actions, required: false, multiple: true,
+						title: "Off executes Smart Home Monitor Routine (optional)"
+					input "thepinroutineStay", "enum", options: actions, required: false, multiple: true,
+						title: "Stay executes Smart Home Monitor Routine (optional)"
+					input "thepinroutineAway", "enum", options: actions, required: false, multiple: true,
+						title: "Away executes Smart Home Monitor Routine (optional)"
+					}
+				else
+					paragraph "No Routines Available"
 				}	
-			else
-			if (thepinusage == "Piston")
+			if (thepinusage == "Piston" || thepinusage == "UserRoutinePiston")
 				{
-				input "thepinpiston", "text", required: true, 
-					title: "Pin executes this WebCore Piston", description: "Copy/Paste External URL"
+				input "thepinpiston", "text", required: false, 
+					title: "All modes executes WebCore Piston (optional)", description: "Copy/Paste External URL"
+				input "thepinpistonOff", "text", required: false, 
+					title: "Off executes WebCore Piston (optional)", description: "Copy/Paste External URL"
+				input "thepinpistonStay", "text", required: false, 
+					title: "Stay executes WebCore Piston (optional)", description: "Copy/Paste External URL"
+				input "thepinpistonAway", "text", required: false, 
+					title: "Away executes WebCore Piston (optional)", description: "Copy/Paste External URL"
 				}	
 			input "themaxcycles", "number", required: false, defaultValue: 0, submitOnChange: true,
 				title: "Maximum times pin may be used, unlimited when zero"
@@ -151,6 +205,9 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	def error_data = ""
 	def pageTwoWarning
 	def unique_result=""
+	def routine_count=0
+	def piston_count=0
+	def size_error=""
 	if (theuserpin)
 		{
 		if (!theuserpin.matches("([0-9]{4})"))
@@ -165,12 +222,82 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 			error_data+=unique_result
 		}
 	
-	if (thepinusage == "Piston")
+	if (thepinusage == "Routine" || thepinusage == "UserRoutinePiston")
 		{
-		if (!thepinpiston.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+		if (thepinroutine)
 			{
-			error_data += "Please enter a valid Piston URL\n\n"
+			routine_count++
+			if (thepinroutine.size()>1)
+				size_error="All Modes"
 			}
+		if (thepinroutineOff)
+			{
+			routine_count++
+			if (thepinroutineOff.size()>1)
+				size_error+=" Off"
+			}
+		if (thepinroutineStay)
+			{
+			routine_count++
+			if (thepinroutineStay.size()>1)
+				size_error+=" Stay"
+			}
+		if (thepinroutineAway)
+			{
+			routine_count++
+			if (thepinroutineAway.size()>1)
+				size_error+=" Away"
+			}
+		if (size_error!="")
+			error_data += "Only one routine may be selected for " + size_error.trim() + "\n\n"
+		if (routine_count==0 && thepinusage == "Routine")
+			error_data += "Please select a Routine\n\n"
+		else
+		if (thepinroutine && routine_count > 1)
+			error_data += "All modes selected, other routines not allowed\n\n"
+		}			
+	if (thepinusage == "Piston"  || thepinusage == "UserRoutinePiston")
+		{
+		size_error=""
+		if (thepinpiston)
+			{
+			piston_count++
+			if (!thepinpiston.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+				{
+				size_error='All Modes'
+				}
+			}	
+		if (thepinpistonOff)
+			{
+			piston_count++
+			if (!thepinpistonOff.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+				{
+				size_error+=' Off'
+				}
+			}	
+		if (thepinpistonStay)
+			{
+			piston_count++
+			if (!thepinpistonStay.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+				{
+				size_error+=' Stay'
+				}
+			}	
+		if (thepinpistonAway)
+			{
+			piston_count++
+			if (!thepinpistonAway.matches("https://graph-[^.]+[.]api.smartthings.com/api/token/[^/]+/smartapps/installations/[^/]+/execute/[:][^:]+[:]"))
+				{
+				size_error+=' Away'
+				}
+			}	
+		if (size_error!="")
+			error_data += "Please enter a valid Piston URL for " + size_error.trim() + "\n\n"
+		if (piston_count==0 && thepinusage == "Piston")
+			error_data += "Please enter at least one Piston\n\n"
+		else
+		if (thepinpiston && piston_count > 1)
+			error_data += "All Modes selected, other Pistons not allowed\n\n"
 		}	
 		
 	if (error_data!="")
@@ -399,6 +526,7 @@ def pageFour(error_data)
 	{
 	dynamicPage(name: "pageFour", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
 		{
+		def rdata=""
 		section
 			{
 			paragraph "Pin Code is ${theuserpin}"
@@ -415,13 +543,57 @@ def pageFour(error_data)
 					paragraph "The pin is Disabled, processed as bad pin"
 					break
 				case "Routine":
-					paragraph "The pin executes Routine: $thepinroutine"
+					if (thepinroutine)
+ 						rdata="All Modes:" + thepinroutine + "\n"
+					if (thepinroutineOff)
+ 						rdata+=" Off:" + thepinroutineOff + "\n"
+					if (thepinroutineStay)
+ 						rdata+=" Stay:" + thepinroutineStay + "\n"
+					if (thepinroutineAway)
+ 						rdata+="Away:" + thepinroutineAway
+ 					rdata=rdata.trim()	
+					paragraph "The pin executes Routines\n $rdata"
 					break
 				case "Piston":
-					paragraph "The pin executes WebCore Piston: $thepinpiston"
+					if (thepinpiston)
+ 						rdata="All Modes\n"
+					if (thepinpistonOff)
+ 						rdata+=" Off\n"
+					if (thepinpistonStay)
+ 						rdata+=" Stay\n"
+					if (thepinpistonAway)
+ 						rdata+="Away"
+ 					rdata=rdata.trim()	
+					paragraph "The pin executes a WebCore Piston for: $rdata"
 					break
 				case "Panic":
 					paragraph "Panic pin triggers the SmartThings intrusion alarm"
+					break
+				case "UserRoutinePiston":
+					paragraph "Multi function pin assigned to a Person"
+					if (thepinroutine)
+ 						rdata="All Modes:" + thepinroutine + "\n"
+					if (thepinroutineOff)
+ 						rdata+=" Off:" + thepinroutineOff + "\n"
+					if (thepinroutineStay)
+ 						rdata+=" Stay:" + thepinroutineStay + "\n"
+					if (thepinroutine)
+ 						rdata+="Away:" + thepinroutineAway
+ 					rdata=rdata.trim()
+ 					if (rdata>"")
+						paragraph "The pin executes Routines\n $rdata"
+					rdata=""
+					if (thepinpiston)
+ 						rdata="All Modes\n"
+					if (thepinpistonOff)
+ 						rdata+=" Off\n"
+					if (thepinpistonStay)
+ 						rdata+=" Stay\n"
+					if (thepinpistonAway)
+ 						rdata+=" Away"
+ 					rdata=rdata.trim()
+ 					if (rdata>"")
+						paragraph "The pin executes a WebCore piston for: $rdata"
 					break
 				default:
 					paragraph "Pin usage not set, Person assumed"

@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jul 17	2018 v2.1.4  Add support for multifunction UserRoutinePiston pins and keypad mode selection 
+ *							added to SHm Delay Users V1.0.0
  *	Jul 11	2018 v2.1.3  Make all keypads sound Exit Delay tones when any keypad set to Exit Delay
  *						 Change default for Multiple Motion Sensors to True
  *	Jul 02	2018 v2.1.2  Add code to verify simkypd and talker modules
@@ -311,7 +313,8 @@ def keypadCodeHandler(evt)
 	def error_message=""
 	def info_message=""
 	def pinKeypadsOK=false;
-
+	def damap=[dummy: "dummy"]				//dummy return map for Routine and Piston processing
+	
 //	Try to find a matching pin in the pin child apps	
 	def userApps = getChildApps()		//gets all completed child apps
 	userApps.find 	
@@ -421,7 +424,27 @@ def keypadCodeHandler(evt)
 				switch (it.thepinusage)
 					{
 					case 'User':
+						userName=it.theusername
+						break
+					case 'UserRoutinePiston':
 						userName=it.theusername	
+//						groovy params are passed by reference, cant modify so use a map for return info
+						damap=process_routine(it, modeEntered, keypad)
+						if (damap?.err)
+							error_message=damap.err+" " 
+						else	
+						if (damap?.info)
+							info_message=damap.info+" " 	
+						else
+							error_message = "Process Routine returned bad data: ${dmap} "
+						damap=process_piston(it, modeEntered, keypad)
+						if (damap?.err)
+							error_message=error_message + damap.err
+						else	
+						if (damap?.info)
+							info_message=info_message + damap.info	
+						else
+							error_message = error_message + "Process Piston returned bad data: ${dmap}"
 						break
 					case 'Disabled':
 						error_message = keypad.displayName + " disabled pin entered for " + it.theusername
@@ -430,8 +453,13 @@ def keypadCodeHandler(evt)
 						error_message = keypad.displayName + " ignored pin entered for " + it.theusername
 						break
 					case 'Routine':
-						error_message = keypad.displayName + " executed routine " + it.thepinroutine + " with pin for " + it.theusername
-						location.helloHome?.execute(it.thepinroutine)
+						damap=process_routine(it, modeEntered, keypad)
+//						log.debug "${damap}"
+						if (damap?.err)
+							error_message=damap.err
+						else	
+						if (damap?.info)
+							info_message=damap.info
 						break
 					case 'Panic':
 						if (globalPanic)
@@ -446,16 +474,14 @@ def keypadCodeHandler(evt)
 							}
 						break
 					case 'Piston':
-						try {
-							def params = [uri: it.thepinpiston]
-//							def params = [uri: "https://www.google.com"]		//use to test
-							asynchttp_v1.get('getResponseHandler', params)
-							info_message = keypad.displayName + " Piston executed with pin for " + it.theusername
-							}
-						catch (e)
-							{
-							error_message = keypad.displayName + " Piston Failed with pin for " + it.theusername + " " + e
-							}    					
+						damap=process_piston(it, modeEntered, keypad)
+						if (damap?.err)
+							error_message=damap.err+" " 
+						else	
+						if (damap?.info)
+							info_message=damap.info+" " 	
+						else
+							error_message = "Process Piston returned bad data: ${dmap} "
 						break
 					default:
 						userName=it.theusername	
@@ -472,7 +498,8 @@ def keypadCodeHandler(evt)
 
 	if (error_message!="")									// put out any messages to notification log
 		{
-		badPin=true		
+		badPin=true
+//		log.debug "${error_message} info ${info_message}"
 		sendNotificationEvent(error_message)
 		}
 	else	
@@ -1064,4 +1091,92 @@ def versiongetResponseHandler(response, data)
         }
     else
     	sendNotificationEvent("SHM Delay Version Check, HTTP Error = ${response.getStatus()}")
-    }		
+    }
+
+
+def	process_routine(it, modeEntered, keypad)
+	{
+//	the initial msg in rmap is the default error message
+	def rmap = [err: "Process Routine " + keypad.displayName + " unknown keypad mode:" + modeEntered + " with pin for " + it.theusername]
+//	modeEntered: off(0), stay(1), night(2), away(3)
+	if (it?.thepinroutine)
+		{
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutine[0])
+		}
+	else 
+	if (modeEntered == 0 && it?.thepinroutineOff)	
+		{
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineOff[0])
+		}
+	else 
+	if (modeEntered == 3 && it?.thepinroutineAway)	
+		{
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineAway[0])
+		}
+	else 
+	if ((modeEntered == 1 || modeEntered == 2) && it?.thepinroutineStay)	
+		{
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineStay[0])
+		}
+	return rmap		//return with an err or info map message
+	}
+
+def fire_routine(it, modeEntered, keypad, theroutine)
+	{
+	def rmsg = keypad.displayName + "Mode:" + modeEntered + " executed routine " + theroutine + " with pin for " + it.theusername
+	def result
+	location.helloHome?.execute(theroutine)
+	if (it.thepinusage == "Routine")
+		result = [err: rmsg]
+	else
+		result = [info: rmsg]
+	return result
+	}	
+
+def process_piston(it, modeEntered, keypad)
+	{	
+	def rmap = [err: "Process Piston " + keypad.displayName + " unknown keypad mode:" + modeEntered + " with pin for " + it.theusername]
+//	modeEntered: off(0), stay(1), night(2), away(3)
+	if (it.thepinpiston)
+		{
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpiston)
+		}
+	else 
+	if (modeEntered == 0 && it.thepinpistonOff)	
+		{
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonOff)
+		}
+	else 
+	if (modeEntered == 3 && it.thepinpistonAway)	
+		{
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonAway)
+		}
+	else 
+	if ((modeEntered == 1 || modeEntered == 2) && it.thepinpistonStay)	
+		{
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonStay)
+		}
+	return rmap		//return with an err or info map message
+	}
+	
+def fire_piston(it, modeEntered, keypad, thepiston)
+	{
+	def rmsg = keypad.displayName + "Mode:" + modeEntered + " executed piston " + thepiston + " with pin for " + it.theusername
+	def result
+	try {
+		def params = [uri: thepiston]
+//		def params = [uri: "https://www.google.com"]		//use to test
+		asynchttp_v1.get('getResponseHandler', params)
+		}
+	catch (e)
+		{
+		rmsg = rmsg + " Piston Failed: " + e
+		}    					
+	if (it.thepinusage == "Piston")
+		result = [err: rmsg]
+	else
+		result = [info: rmsg]
+	return result
+
+	}
+	
