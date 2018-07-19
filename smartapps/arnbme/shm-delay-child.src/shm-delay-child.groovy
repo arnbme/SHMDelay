@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jul 19	2018 v2.0.7  Send open door message immediately on arming Run CheckStatus in new_monitor 
  *	Jun 27	2018 v2.0.6  Add logic to trigger SHM Delay Talker exitDelay when away mode triggered by non_keypad device 
  *	Jun 26	2018 v2.0.6  Add logic to trigger SHM Delay Talker using a location event for entryDelay 
  *	Jun 03	2018 v2.0.5  Show Entry Delay on simulated keypad. 
@@ -141,7 +142,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.6";
+	return "2.0.7";
 	}
 	
 def pageZeroVerify()
@@ -1076,6 +1077,7 @@ def new_monitor()
 	log.debug "new_monitor called: cycles: $maxcycles"
 	unschedule(checkStatus)
 	state.cycles = maxcycles
+	checkStatus()
 	def now = new Date()
 	def runTime = new Date(now.getTime() + (themonitordelay * 60000))
 	runOnce (runTime, checkStatus)
