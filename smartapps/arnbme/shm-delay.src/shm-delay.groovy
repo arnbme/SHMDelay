@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jul 19	2018 v2.1.5	 add notification options on Bad Pin entry on global basis
  *	Jul 18	2018 v2.1.5	 add notification options on Pin entry on global and each user pin
  *	Jul 17	2018 v2.1.4  Add support for multifunction UserRoutinePiston pins and
  *							Keypad mode selection on Routine, Piston, and UserRoutinePiston pins
@@ -260,6 +261,26 @@ def globalsPage()
 					input "globalPinPhone", "phone", required: false, 
 						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
 					}
+				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
+					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
+				if (globalBadPinMsgs)
+					{
+					input "globalBadPinLog", "bool", required: false, defaultValue:true,
+						title: "Log Bad Pins to Notifications?"
+					if (location.contactBookEnabled)
+						{
+						input("globalBadPinRecipients", "contact", title: "Bad Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
+						input "globalBadPinPush", "bool", required: false, defaultValue:false,
+							title: "Send Bad Pin Push Notification?"
+						}
+					else	
+						{
+						input "globalPinPush", "bool", required: false, defaultValue:true,
+							title: "Send Bad Pin Push Notification?"
+						}
+					input "globalBadPinPhone", "phone", required: false, 
+						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+					}
 				}	
 
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
@@ -336,6 +357,7 @@ def keypadCodeHandler(evt)
 //	log.debug("Delayv2 codeentryhandler searching user apps for keypad ${keypad.displayName} ${evt.data} ${evt.value}")
 	def userName=false;
 	def badPin=true;
+	def badPin_message = keypad.displayName + "\nInvalid pin: " + codeEntered
 	def error_message=""
 	def info_message=""
 	def pinKeypadsOK=false;
@@ -364,6 +386,7 @@ def keypadCodeHandler(evt)
 	    			}
 	    		}	
 			badPin=false
+			badPin_message=""
 //			log.debug "matched pin ${it.theuserpin} $it.pinScheduled"
 
 //			When pin is scheduled verify Dates, Weekday and Time Range	
@@ -441,14 +464,14 @@ def keypadCodeHandler(evt)
 							pinKeypadsOK=true
 						}
 					if (!pinKeypadsOK) 	
-						error_message = keypad.displayName + " invalid device with pin for " + it.theusername
+						error_message = keypad.displayName + " is unauthorized keypad with pin for " + it.theusername
 					}
 				}	
 
 //			Verify pin usage
 			if (error_message=="")
 				{
-				log.debug "processing the pin for ${it.thepinusage}"
+//				log.debug "processing the pin for ${it.thepinusage}"
 				switch (it.thepinusage)
 					{
 					case 'User':
@@ -537,6 +560,8 @@ def keypadCodeHandler(evt)
 			keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
 			acknowledgeArmRequest(4,keypad);
 			}
+		if (globalBadPinMsgs && badPin_message !="")
+			doBadPinNotifications (badPin_message, itext)
 /*	
 **		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
@@ -1241,7 +1266,7 @@ def fire_piston(it, modeEntered, keypad, thepiston, textmode)
 // log, send notification, SMS message for pin entry, base code from SHM Delay Child	
 def doPinNotifications(localmsg, it)
 	{
-	log.debug "doPinNotifications entered ${localmsg} ${it}"
+//	log.debug "doPinNotifications entered ${localmsg} ${it}"
 	if (it?.pinMsgOverride)
 		{
 //		log.debug "Pin msg override being used"
@@ -1307,5 +1332,32 @@ def doPinNotifications(localmsg, it)
 //		log.debug "default pin msg logic used, log to notifications"
 		sendNotificationEvent(localmsg)		//log to notification when no settings available
 		}
-	}	
+	}
+	
+def doBadPinNotifications(localmsg, it)
+	{
+//	log.debug "doBadPinNotifications entered ${localmsg} ${it}"
+	if (globalBadPinLog)
+		{
+		sendNotificationEvent(localmsg)
+		}
+	if (location.contactBookEnabled && globalBadPinRecipients)
+		{
+		sendNotificationToContacts(localmsg, globalBadPinRecipients, [event: false])
+		}
+	if (globalBadPinPush)
+		{
+		sendPushMessage(localmsg)
+		}
+	if (globalBadPinPhone)
+		{
+		def phones = globalBadPinPhone.split(";")
+		for (def i = 0; i < phones.size(); i++)
+			{
+			sendSmsMessage(phones[i], localmsg)
+			}
+		}
+	}
+	
+	
 	
