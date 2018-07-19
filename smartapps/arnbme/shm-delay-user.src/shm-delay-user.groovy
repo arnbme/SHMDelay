@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Jul 18, 2018 v1.1.0  Add individual pin message control that overrides global settings
  *	Jul 17, 2018 v1.0.0  Add multifunction pin allowing it to set SHM status, run a routine, and run a piston.
  *						 Add ability to run a routine or piston based on mode entered on keypad
  *	Jun 13, 2018 v0.0.2  Add restrictions by mode and device, change pageThree to PageFour, add pageThree restrictions
@@ -45,12 +46,14 @@ preferences {
 	page(name: "pageTwoVerify")
 	page(name: "pageThree", nextPage: "pageThreeVerify")	//Restrictions page
 	page(name: "pageThreeVerify")
-	page(name: "pageFour")		//recap page when everything is valid. No changes allowed.
+	page(name: "pageFour", nextPage: "pageFourVerify")		//Pin msg overrides
+	page(name: "pageFourVerify")
+	page(name: "pageFive")		//recap page when everything is valid. No changes allowed.
 	}
 
 def version()
 	{
-	return "1.0.0";
+	return "1.1.0";
 	}
 
 def pageZeroVerify()
@@ -93,6 +96,8 @@ def pageOne()
 				title: "Date, Day or Time Scheduled?"
 			input "pinRestricted", "bool", required: false, defaultValue:false,   
 				title: "Restrict use by mode or to device?"
+			input "pinMsgOverride", "bool", required: false, defaultValue:false,   
+				title: "Override Global Pin Msg Defaults?"
 			input "theuserpin", "text", required: true, 
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
@@ -321,7 +326,10 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 		if (pinRestricted)
 			pageThree()
 		else
+		if (pinMsgOverride)
 			pageFour()
+		else
+			pageFive()
 		}
 	}	
 
@@ -456,10 +464,13 @@ def pageTwoVerify() 					//edit schedule data, go to pageThree when valid
 		pageTwo()
 		}
 	else
-	if (pinRestriced)
+	if (pinRestricted)
 		pageThree()
-	else	
+	else
+	if (pinMsgOverride)
 		pageFour()
+	else
+		pageFive()
 	}
 
 //	verify and format start and end date standard format is Jan 1, 2018
@@ -517,12 +528,57 @@ def pageThreeVerify() 					//edit schedule data, go to pageThree when valid
 		pageThree()
 		}
 	else	
+	if (pinMsgOverride)
 		pageFour()
+	else
+		pageFive()
+	}
+
+def pageFour() 		//Pin msg overrides added Jul 18, 2018
+	{
+	dynamicPage(name: 'pageFour', title: 'Pin Msg Overrides') 
+		{
+		section
+			{
+			if (state.error_data)
+				{
+				paragraph "${state.error_data}"
+				state.remove("error_data")
+				}
+			input "UserPinLog", "bool", required: false, defaultValue: true,
+				title: "Log pin entries to notification log Default: On/True"
+			if (location.contactBookEnabled)
+				{
+				input("UserPinRecipients", "contact", title: "Pin Notify Contacts",required:false,multiple:true) 
+				input "UserPinPush", "bool", required: false, defaultValue:false,
+					title: "Send Pin Push Notification?"
+				}
+			else
+				{
+				input "UserPinPush", "bool", required: false, defaultValue:true,
+					title: "Send Pin Push Notification?"
+				}
+			input "UserPinPhone", "phone", required: false, 
+				title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+			}
+		}
+	}
+	
+def pageFourVerify() 					//edit schedule data, go to pageThree when valid
+	{
+	def error_data = ""
+	if (error_data!="")
+		{
+		state.error_data=error_data.trim()
+		pageFour()
+		}
+	else	
+		pageFive()
 	}
 
 
 //	This page summarizes the data prior to save	
-def pageFour(error_data)
+def pageFive(error_data)
 	{
 	dynamicPage(name: "pageFour", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
 		{
@@ -598,6 +654,10 @@ def pageFour(error_data)
 				default:
 					paragraph "Pin usage not set, Person assumed"
 				}
+			if (pinMsgOverride)	
+				paragraph "Pin messaging overrides global defaults"
+			else	
+				paragraph "Pin messaging uses global defaults"
 			if (themaxcycles > 0)
 				{
 				paragraph "Max Cycles is ${themaxcycles}"

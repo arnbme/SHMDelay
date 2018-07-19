@@ -20,8 +20,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	Jul 17	2018 v2.1.4  Add support for multifunction UserRoutinePiston pins and keypad mode selection 
- *							added to SHm Delay Users V1.0.0
+ *	Jul 18	2018 v2.1.5	 add notification options on Pin entry on global and each user pin
+ *	Jul 17	2018 v2.1.4  Add support for multifunction UserRoutinePiston pins and
+ *							Keypad mode selection on Routine, Piston, and UserRoutinePiston pins
+ *							based upon code added to SHm Delay Users V1.0.0 to setup the fields
  *	Jul 11	2018 v2.1.3  Make all keypads sound Exit Delay tones when any keypad set to Exit Delay
  *						 Change default for Multiple Motion Sensors to True
  *	Jul 02	2018 v2.1.2  Add code to verify simkypd and talker modules
@@ -106,7 +108,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.3";
+	return "2.1.5";
 	}
 def main()
 	{
@@ -238,7 +240,28 @@ def globalsPage()
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
 //				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
 //					title: "(Future enhancement) Create intrusion alert after how many invalid pin code entries. 0 = disabled, range: 1-10, default: 4"
+				input "globalPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
+					title: "Log pin entries. Default: On/True"
+				if (globalPinMsgs)
+					{
+					input "globalPinLog", "bool", required: false, defaultValue:true,
+						title: "Log Pin to Notifications?"
+					if (location.contactBookEnabled)
+						{
+						input("globalPinRecipients", "contact", title: "Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
+						input "globalPinPush", "bool", required: false, defaultValue:false,
+							title: "Send Pin Push Notification?"
+						}
+					else	
+						{
+						input "globalPinPush", "bool", required: false, defaultValue:true,
+							title: "Send Pin Push Notification?"
+						}
+					input "globalPinPhone", "phone", required: false, 
+						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+					}
 				}	
+
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
 				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 			input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
@@ -300,6 +323,9 @@ def keypadCodeHandler(evt)
 //	log.debug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
 	def codeEntered = evt.value as String				//the entered pin
 	def modeEntered = evt.data as Integer				//the selected mode off(0), stay(1), night(2), away(3)
+	def itext = [dummy: "dummy"]						//external find it data or dummy map to fake it when pin not found										
+	def fireBadPin=true									//flag to stop double band pin fire. Caused by timing issue 
+//															with Routine, Piston and UserRoutinePiston processing	
 	if (modeEntered < 0 || modeEntered> 3)				//catch an unthinkable bad mode, this is catastrophic 
 		{
 		log.error "${app.label}: Unexpected arm mode ${modeEntered} sent by keypad!"
@@ -323,6 +349,7 @@ def keypadCodeHandler(evt)
 			{
 //			log.debug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
 //			verify burn cycles
+			itext=it										//save for use outside of find loop
 			if (it.themaxcycles > 0)						//check if pin is burned
 				{
 				def atomicUseId=it.getId()+'uses'			//build unique atomic id for uses
@@ -421,30 +448,12 @@ def keypadCodeHandler(evt)
 //			Verify pin usage
 			if (error_message=="")
 				{
+				log.debug "processing the pin for ${it.thepinusage}"
 				switch (it.thepinusage)
 					{
 					case 'User':
+					case 'UserRoutinePiston':		//process arming now or get a possible keypad timeout
 						userName=it.theusername
-						break
-					case 'UserRoutinePiston':
-						userName=it.theusername	
-//						groovy params are passed by reference, cant modify so use a map for return info
-						damap=process_routine(it, modeEntered, keypad)
-						if (damap?.err)
-							error_message=damap.err+" " 
-						else	
-						if (damap?.info)
-							info_message=damap.info+" " 	
-						else
-							error_message = "Process Routine returned bad data: ${dmap} "
-						damap=process_piston(it, modeEntered, keypad)
-						if (damap?.err)
-							error_message=error_message + damap.err
-						else	
-						if (damap?.info)
-							info_message=info_message + damap.info	
-						else
-							error_message = error_message + "Process Piston returned bad data: ${dmap}"
 						break
 					case 'Disabled':
 						error_message = keypad.displayName + " disabled pin entered for " + it.theusername
@@ -453,8 +462,12 @@ def keypadCodeHandler(evt)
 						error_message = keypad.displayName + " ignored pin entered for " + it.theusername
 						break
 					case 'Routine':
+//						forced to do acknowledgeArmRequest here due to a hardware timeout on keypad
+						keypad.acknowledgeArmRequest(4)				
+						acknowledgeArmRequest(4,keypad);
+						fireBadPin=false
 						damap=process_routine(it, modeEntered, keypad)
-//						log.debug "${damap}"
+						log.debug "Routine created ${damap}"
 						if (damap?.err)
 							error_message=damap.err
 						else	
@@ -474,12 +487,16 @@ def keypadCodeHandler(evt)
 							}
 						break
 					case 'Piston':
+//						forced to do acknowledgeArmRequest here due to a possible hardware timeout on keypad
+						keypad.acknowledgeArmRequest(4)				
+						acknowledgeArmRequest(4,keypad);
+						fireBadPin=false
 						damap=process_piston(it, modeEntered, keypad)
 						if (damap?.err)
-							error_message=damap.err+" " 
+							error_message=damap.err 
 						else	
 						if (damap?.info)
-							info_message=damap.info+" " 	
+							info_message=damap.info 	
 						else
 							error_message = "Process Piston returned bad data: ${dmap} "
 						break
@@ -500,12 +517,12 @@ def keypadCodeHandler(evt)
 		{
 		badPin=true
 //		log.debug "${error_message} info ${info_message}"
-		sendNotificationEvent(error_message)
+		doPinNotifications(error_message, itext)
 		}
 	else	
 	if (info_message!="")									
 		{
-		sendNotificationEvent(info_message)
+		doPinNotifications(info_message, itext)
 		}
 		
 //	Was pin not found
@@ -515,9 +532,12 @@ def keypadCodeHandler(evt)
 
 	if (badPin)
 		{
-		keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
-		acknowledgeArmRequest(4,keypad);
-/*
+		if (fireBadPin)
+			{
+			keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
+			acknowledgeArmRequest(4,keypad);
+			}
+/*	
 **		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
 			{
@@ -555,7 +575,7 @@ def keypadCodeHandler(evt)
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 //	atomicState.badpins=0		//reset badpin count
 	def armModes=['Home','Stay','Night','Away']
-	def message = keypad.displayName + " set mode to " + armModes[modeEntered] + " with pin for " + userName
+	def message = keypad.displayName + "\nset mode to " + armModes[modeEntered] + "\nwith pin for " + userName
 	def aMap = [data: [codeEntered: codeEntered, armMode: armModes[modeEntered]]]
 	if (modeEntered==3 && globalKeypadExitDelay > 0)	//in away mode process Exit Delay when requested
 			{
@@ -572,7 +592,35 @@ def keypadCodeHandler(evt)
 			}
 		else
 			{execRoutine(aMap.data)}	
-	sendNotificationEvent(message)
+	doPinNotifications(message,itext)
+
+//	Process remainder of UserRoutinePiston settings
+	if (itext.thepinusage == 'UserRoutinePiston')
+		{
+		damap=process_routine(itext, modeEntered, keypad)
+		if (damap?.err)
+			{
+			if (damap.err != "nodata")
+				doPinNotifications(damap.err,itext)			//no message when no routines where coded
+			}
+		else	
+		if (damap?.info)
+			doPinNotifications(damap.info,itext)
+		else
+			doPinNotifications("Process Routine returned bad data: ${damap}",itext)
+
+		damap=process_piston(itext, modeEntered, keypad)
+		if (damap?.err)
+			{
+			if (damap.err != "nodata")
+				doPinNotifications(damap.err,itext)			//no message when no routines where coded
+			}
+		else	
+		if (damap?.info)
+			doPinNotifications(damap.info,itext)
+		else
+			doPinNotifications("Process Piston returned bad data: ${damap}",itext)
+		}
 	}
 
 def acknowledgeArmRequest(armMode,keypad)
@@ -1101,29 +1149,34 @@ def	process_routine(it, modeEntered, keypad)
 //	modeEntered: off(0), stay(1), night(2), away(3)
 	if (it?.thepinroutine)
 		{
-		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutine[0])
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutine[0], "All")
 		}
 	else 
 	if (modeEntered == 0 && it?.thepinroutineOff)	
 		{
-		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineOff[0])
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineOff[0], "Off")
 		}
 	else 
 	if (modeEntered == 3 && it?.thepinroutineAway)	
 		{
-		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineAway[0])
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineAway[0], "Away")
 		}
 	else 
 	if ((modeEntered == 1 || modeEntered == 2) && it?.thepinroutineStay)	
 		{
-		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineStay[0])
+		rmap=fire_routine(it, modeEntered, keypad, it.thepinroutineStay[0], "Stay")
+		}
+	else
+	if (it.pinuseage == "UserRoutinePiston" && modeEntered > -1 && modeEntered < 4 )	//nothing to process
+		{
+		rmap = [err: "nodata"]
 		}
 	return rmap		//return with an err or info map message
 	}
 
-def fire_routine(it, modeEntered, keypad, theroutine)
+def fire_routine(it, modeEntered, keypad, theroutine, textmode)
 	{
-	def rmsg = keypad.displayName + "Mode:" + modeEntered + " executed routine " + theroutine + " with pin for " + it.theusername
+	def rmsg = keypad.displayName + " Mode:" + textmode + " executed routine " + theroutine + " with pin for " + it.theusername
 	def result
 	location.helloHome?.execute(theroutine)
 	if (it.thepinusage == "Routine")
@@ -1139,29 +1192,34 @@ def process_piston(it, modeEntered, keypad)
 //	modeEntered: off(0), stay(1), night(2), away(3)
 	if (it.thepinpiston)
 		{
-		rmap=fire_piston(it, modeEntered, keypad, it.thepinpiston)
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpiston, "All")
 		}
 	else 
 	if (modeEntered == 0 && it.thepinpistonOff)	
 		{
-		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonOff)
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonOff, "Off")
 		}
 	else 
 	if (modeEntered == 3 && it.thepinpistonAway)	
 		{
-		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonAway)
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonAway, "Away")
 		}
 	else 
 	if ((modeEntered == 1 || modeEntered == 2) && it.thepinpistonStay)	
 		{
-		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonStay)
+		rmap=fire_piston(it, modeEntered, keypad, it.thepinpistonStay, "Stay")
+		}
+	else
+	if (it.pinuseage == "UserRoutinePiston" && modeEntered > -1 && modeEntered < 4 )	//nothing to process
+		{
+		rmap = [err: "nodata"]
 		}
 	return rmap		//return with an err or info map message
 	}
 	
-def fire_piston(it, modeEntered, keypad, thepiston)
+def fire_piston(it, modeEntered, keypad, thepiston, textmode)
 	{
-	def rmsg = keypad.displayName + "Mode:" + modeEntered + " executed piston " + thepiston + " with pin for " + it.theusername
+	def rmsg = keypad.displayName + " Mode:" + textmode + " executed piston with pin for " + it.theusername
 	def result
 	try {
 		def params = [uri: thepiston]
@@ -1179,4 +1237,75 @@ def fire_piston(it, modeEntered, keypad, thepiston)
 	return result
 
 	}
+	
+// log, send notification, SMS message for pin entry, base code from SHM Delay Child	
+def doPinNotifications(localmsg, it)
+	{
+	log.debug "doPinNotifications entered ${localmsg} ${it}"
+	if (it?.pinMsgOverride)
+		{
+//		log.debug "Pin msg override being used"
+
+		if (it.UserPinLog)
+			{
+//			log.debug "sent to system log"
+			sendNotificationEvent(localmsg)
+			}
+		if (location.contactBookEnabled && it.UserPinRecipients)
+			{
+//			log.debug "sent to contact folks"
+			sendNotificationToContacts(localmsg, it.UserPinRecipients, [event: false])
+			}
+		if (it.UserPinPush)
+			{
+			sendPushMessage(localmsg)
+			}
+		if (it.UserPinPhone)
+			{
+			def phones = it.UserPinPhone.split(";")
+//			log.debug "$phones"
+			for (def i = 0; i < phones.size(); i++)
+				{
+				sendSmsMessage(phones[i], localmsg)
+				}
+			}
+		}
+	else
+	if (globalPinMsgs)	
+		{
+//		log.debug "global Pin msg settings being used"
+
+		if (globalPinLog)
+			{
+//			log.debug "log to notification log"
+			sendNotificationEvent(localmsg)
+			}
+		if (location.contactBookEnabled && globalPinRecipients)
+			{
+//			log.debug "global contacts being used"
+			sendNotificationToContacts(localmsg, globalPinRecipients, [event: false])
+			}
+		if (globalPinPush)
+			{
+			sendPushMessage(localmsg)
+			}
+		if (globalPinPhone)
+			{
+			def phones = globalPinPhone.split(";")
+	//		log.debug "$phones"
+			for (def i = 0; i < phones.size(); i++)
+				{
+				sendSmsMessage(phones[i], localmsg)
+				}
+			}
+		}
+	else
+	if (globalPinMsgs && globalPinMsgs==false)	
+		{}
+	else
+		{
+//		log.debug "default pin msg logic used, log to notifications"
+		sendNotificationEvent(localmsg)		//log to notification when no settings available
+		}
+	}	
 	
