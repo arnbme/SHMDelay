@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Jul 19	2018 v2.0.7a fix logic error created by 2.0.7 in new_monitor now has a true/false flag when called 
  *	Jul 19	2018 v2.0.7  Send open door message immediately on arming Run CheckStatus in new_monitor 
  *	Jun 27	2018 v2.0.6  Add logic to trigger SHM Delay Talker exitDelay when away mode triggered by non_keypad device 
  *	Jun 26	2018 v2.0.6  Add logic to trigger SHM Delay Talker using a location event for entryDelay 
@@ -653,7 +654,7 @@ def childalarmStatusHandler(evt)
 			}
 		else
 			{
-			new_monitor()
+			new_monitor(false)
 			}
 					
 		if (parent?.globalKeypadControl)
@@ -882,12 +883,12 @@ def doorOpensHandler(evt)
 	if (alarmstatus == "away" && parent.globalKeypadControl && theexitdelay > 0 && 
 		alarmSecs - kSecs > 4 && currSecs - alarmSecs < theexitdelay)
 		{
-		new_monitor()
+		new_monitor(true)
 		}
 	else
 	if (alarmstatus == "away" && !parent.globalKeypadControl && currSecs - alarmSecs < theexitdelay)
 		{
-		new_monitor()
+		new_monitor(true)
 		}
 	else	
 //	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")) Mar 23, 2018
@@ -1071,17 +1072,23 @@ def soundalarm(data)
 	unschedule(soundalarm)					//kill any lingering tasks caused by using overwrite false on runIn
 	}
 
-/******** Monitor for Open Doors when SmarthHome is initially Armed *********/	
-def new_monitor()
+/******** Monitor for Open Doors when SmarthHome is initially Armed *********/
+//	on July 19, 2018 changed to instant check when delay = false coming from open doors check at arming
+//	changed all executions to include true or false on new_monitor call
+def new_monitor(delay)
 	{
 	log.debug "new_monitor called: cycles: $maxcycles"
 	unschedule(checkStatus)
 	state.cycles = maxcycles
-	checkStatus()
-	def now = new Date()
-	def runTime = new Date(now.getTime() + (themonitordelay * 60000))
-	runOnce (runTime, checkStatus)
-	}
+	if (!delay)
+		checkStatus()
+	else
+		{
+		def now = new Date()
+		def runTime = new Date(now.getTime() + (themonitordelay * 60000))
+		runOnce (runTime, checkStatus)
+		}
+	}	
 
 def killit()
 	{
