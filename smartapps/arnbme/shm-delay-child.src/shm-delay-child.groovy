@@ -22,7 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *	Jul 19	2018 v2.0.7a fix logic error created by 2.0.7 in new_monitor now has a true/false flag when called 
+ *	Jul 19	2018 v2.0.8  fix logic error created by 2.0.7 in new_monitor now has a true/false flag when called 
  *	Jul 19	2018 v2.0.7  Send open door message immediately on arming Run CheckStatus in new_monitor 
  *	Jun 27	2018 v2.0.6  Add logic to trigger SHM Delay Talker exitDelay when away mode triggered by non_keypad device 
  *	Jun 26	2018 v2.0.6  Add logic to trigger SHM Delay Talker using a location event for entryDelay 
@@ -143,7 +143,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.7";
+	return "2.0.8";
 	}
 	
 def pageZeroVerify()
