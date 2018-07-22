@@ -14,6 +14,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Jul 21, 2018 v1.1.1  When pin 0000 is added as a user pin add flag to ignore it on OFF button
+ *							allowing the IRIS keypad to have one touch arming
+ *							depending upon firmware hitting off or partial once or twice with no pin enters a 0000 pin								
  *	Jul 18, 2018 v1.1.0  Add individual pin message control that overrides global settings
  *	Jul 17, 2018 v1.0.0  Add multifunction pin allowing it to set SHM status, run a routine, and run a piston.
  *						 Add ability to run a routine or piston based on mode entered on keypad
@@ -53,7 +56,7 @@ preferences {
 
 def version()
 	{
-	return "1.1.0";
+	return "1.1.1";
 	}
 
 def pageZeroVerify()
@@ -98,12 +101,17 @@ def pageOne()
 				title: "Restrict use by mode or to device?"
 			input "pinMsgOverride", "bool", required: false, defaultValue:false,   
 				title: "Override Global Pin Msg Defaults?"
-			input "theuserpin", "text", required: true, 
+			input "theuserpin", "text", required: true,submitOnChange: true, 
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
 				title: "User Name"
 			input "thepinusage", "enum", options:["User", "UserRoutinePiston", "Routine", "Piston", "Panic", "Ignore", "Disabled"], 
 				required: true, title: "Pin Usage", submitOnChange: true
+			if (theuserpin == '0000' && (thepinusage == 'User'|| thepinusage == 'UserRoutinePiston'))
+				{
+				input "thepinIgnoreOff","bool", required: false, defaultValue:true,   
+					title: "When using any keypad ignore 0000 pin on Off?"
+				}
 			if (thepinusage == "Routine" || thepinusage == "UserRoutinePiston")
 				{
 				def routines = location.helloHome?.getPhrases()*.label
@@ -549,7 +557,7 @@ def pageFour() 		//Pin msg overrides added Jul 18, 2018
 				title: "Log pin entries to notification log Default: On/True"
 			if (location.contactBookEnabled)
 				{
-				input("UserPinRecipients", "contact", title: "Pin Notify Contacts",required:false,multiple:true) 
+				input("UserPinRecipients", "contact", title: "Pin Notify Contacts (When active ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
 				input "UserPinPush", "bool", required: false, defaultValue:false,
 					title: "Send Pin Push Notification?"
 				}

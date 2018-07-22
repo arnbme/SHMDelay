@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jul 21	2018 v2.1.6	 add support for Iris Keypad quick arm with no pin and Off or Partial key
+ *							sends a 0000 pin code
  *	Jul 19	2018 v2.1.5	 add notification options on Bad Pin entry on global basis
  *	Jul 18	2018 v2.1.5	 add notification options on Pin entry on global and each user pin
  *	Jul 17	2018 v2.1.4  Add support for multifunction UserRoutinePiston pins and
@@ -385,10 +387,16 @@ def keypadCodeHandler(evt)
 					error_message = keypad.displayName + " Burned pin entered for " + it.theusername
 	    			}
 	    		}	
-			badPin=false
-			badPin_message=""
+			if (error_message == "" && codeEntered == '0000' && modeEntered == 0 && it.thepinIgnoreOff)
+				{
+				badPin=true
+				}
+			else	
+				{
+				badPin=false
+				badPin_message=""
+				}
 //			log.debug "matched pin ${it.theuserpin} $it.pinScheduled"
-
 //			When pin is scheduled verify Dates, Weekday and Time Range	
 			if (error_message=="" && it.pinScheduled)
 				{
