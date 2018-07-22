@@ -111,7 +111,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.5";
+	return "2.1.6";
 	}
 def main()
 	{
