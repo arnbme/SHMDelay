@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Sep 20, 2018 v2.1.7	 Change pin verification lookup reducing overhead in routine keypadcodehandler around line 376
+ *	Jul 24	2018 v2.1.7	 Pin 0000 not User or UserRoutinePiston and ingore off was previously set, it was honored
+ *							(released on Sep 20, 2018)
  *	Jul 21	2018 v2.1.6	 add support for Iris Keypad quick arm with no pin and Off or Partial key
  *							sends a 0000 pin code
  *	Jul 19	2018 v2.1.5	 add notification options on Bad Pin entry on global basis
@@ -111,7 +114,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.6";
+	return "2.1.7";
 	}
 def main()
 	{
@@ -366,10 +369,12 @@ def keypadCodeHandler(evt)
 	def damap=[dummy: "dummy"]				//dummy return map for Routine and Piston processing
 	
 //	Try to find a matching pin in the pin child apps	
-	def userApps = getChildApps()		//gets all completed child apps
+//	def userApps = getChildApps()		//gets all completed child apps Sep 20, 2018
+	def userApps = findAllChildAppsByName('SHM Delay User')
 	userApps.find 	
 		{
-		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	
+//		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	Sep 20, 2018
+		if (it.getInstallationState()=='COMPLETE' && it.theuserpin == codeEntered)	
 			{
 //			log.debug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
 //			verify burn cycles
@@ -387,9 +392,11 @@ def keypadCodeHandler(evt)
 					error_message = keypad.displayName + " Burned pin entered for " + it.theusername
 	    			}
 	    		}	
-			if (error_message == "" && codeEntered == '0000' && modeEntered == 0 && it.thepinIgnoreOff)
+			if (error_message == "" && codeEntered == '0000' && modeEntered == 0 && 
+				(it.thepinusage=='User' || it.thepinusage=='UserRoutinePiston') && it?.thepinIgnoreOff)
 				{
 				badPin=true
+				error_message=badPin_message
 				}
 			else	
 				{
@@ -1366,6 +1373,3 @@ def doBadPinNotifications(localmsg, it)
 			}
 		}
 	}
-	
-	
-	
