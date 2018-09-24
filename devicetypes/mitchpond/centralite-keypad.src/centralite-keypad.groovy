@@ -12,6 +12,11 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Sep 20, 2018 per ST tech support. Issue acknowlegement in HandleArmRequest
+ *               disable routines: acknowledgeArmRequest and sendInvalidKeycodeResponse allowing SHM Delay to have no code changes
+ *
+ *  Sep 18, 2018 comment out health check in an attempt to fix timout issue  (no improvement) 
+ *  Sep 04, 2018 add health check and vid for new phone app. 
  *  Mar 25, 2018 add volts to battery message 		
  *  Aug 25, 2017 deprecate change of Jul 12, 2017, change from Jul 25 & 26, 2017 remains but is no longer needed or used 		
  *  Jul 26, 2017 Stop entryDelay from updating field lastUpdate or alarm is not triggered in CoRE
@@ -22,7 +27,7 @@
  *  Jul 12, 2017 in sendStatustoDevice light Night button not HomeStay button (no such mode in SmartHome) 		
  */
 metadata {
-	definition (name: "Centralite Keypad", namespace: "mitchpond", author: "Mitch Pond") {
+	definition (name: "Centralite Keypad", namespace: "mitchpond", author: "Mitch Pond", vid: "generic-motion") {
 
 		capability "Battery"
 		capability "Configuration"
@@ -36,6 +41,7 @@ metadata {
 		capability "button"
         capability "polling"
         capability "Contact Sensor"
+//      capability "Health Check"
 		
 		attribute "armMode", "String"
         attribute "lastUpdate", "String"
@@ -399,11 +405,12 @@ private getBatteryResult(rawValue) {
 		def minVolts = 2.5
 		def maxVolts = 3.0
 		def pct = (volts - minVolts) / (maxVolts - minVolts)
-		result.value = Math.min(100, (int) pct * 100)
+//		result.value = Math.min(100, (int) pct * 100)
+		result.value = Math.min(100, Math.round(pct * 100))
 		descriptionText = "${linkText} battery was ${result.value}% $volts volts"
 		result.descriptionText = descriptionText
 		log.debug "$result"
-	}
+        result.value=rawValue        }
 //	sendNotificationEvent "${result.descriptionText}"
 //	sendNotificationEvent (descriptionText)
 	return result
@@ -448,7 +455,12 @@ private handleArmRequest(message){
 				]
 	def results = cmds?.collect { new physicalgraph.device.HubAction(it) } + createCodeEntryEvent(keycode, reqArmMode)
 	*/
-	def results = createCodeEntryEvent(keycode, reqArmMode)
+//	def results = createCodeEntryEvent(keycode, reqArmMode)
+	List cmds = [
+				 "raw 0x501 {09 01 00 0${reqArmMode}}",
+				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
+				]
+	def results = cmds?.collect { new physicalgraph.device.HubAction(it) } + createCodeEntryEvent(keycode, reqArmMode)     
 	log.trace "Method: handleArmRequest(message): "+results
 	return results
 }
@@ -554,6 +566,7 @@ private setKeypadArmMode(armMode){
 }
 
 def acknowledgeArmRequest(armMode){
+	return false
 	List cmds = [
 				 "raw 0x501 {09 01 00 0${armMode}}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -564,6 +577,7 @@ def acknowledgeArmRequest(armMode){
 }
 
 def sendInvalidKeycodeResponse(){
+	return false
 	List cmds = [
 				 "raw 0x501 {09 01 00 04}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -580,9 +594,12 @@ def beep(def beepLength = settings.beepLength) {
 	}
 
 	def len = zigbee.convertToHexString(beepLength, 2)
-	List cmds = ["raw 0x501 {09 01 04 05${len}}", 'delay 200',
-				 "send 0x${device.deviceNetworkId} 1 1", 'delay 500']
+//	List cmds = ["raw 0x501 {09 01 04 05${len}}", 'delay 200',
+//				 "send 0x${device.deviceNetworkId} 1 1", 'delay 500']
+	List cmds = ["raw 0x501 {09 01 04 05${len}}",
+				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 	cmds
+//	return (cmds?.collect { new physicalgraph.device.HubAction(it) })
 }
 
 //------Utility methods------//
