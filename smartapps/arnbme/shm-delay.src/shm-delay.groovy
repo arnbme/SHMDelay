@@ -20,6 +20,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 10, 2018 v2.1.8	 Add support for RBOY DTH, add global dthrboy
+ *	Sep 20, 2018 v2.1.7	 Change pin verification lookup reducing overhead in routine keypadcodehandler around line 376
+ *	Jul 24	2018 v2.1.7	 Pin 0000 not User or UserRoutinePiston and ingore off was previously set, it was honored
+ *							(released on Sep 20, 2018)
  *	Jul 21	2018 v2.1.6	 add support for Iris Keypad quick arm with no pin and Off or Partial key
  *							sends a 0000 pin code
  *	Jul 19	2018 v2.1.5	 add notification options on Bad Pin entry on global basis
@@ -111,7 +115,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.6";
+	return "2.1.8";
 	}
 def main()
 	{
@@ -225,8 +229,16 @@ def globalsPage()
 				{
 				def actions = location.helloHome?.getPhrases()*.label
 				actions?.sort()
-				input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true,
-					title: "Real Keypads used to arm and disarm SHM"
+				if (globalRboyDth)
+					{
+					input "globalKeypadDevices", "device.EnhancedZigBeeKeypadLock", required: false, multiple: true,
+						title: "Real Keypads used to arm and disarm SHM"
+					}
+				else	
+					{
+					input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true,
+						title: "Real Keypads used to arm and disarm SHM"
+					}
 				input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
 					title: "True exit delay in seconds when arming in Away mode from any keypad. range 0-90, default:30"
 				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
@@ -282,6 +294,8 @@ def globalsPage()
 						}
 					input "globalBadPinPhone", "phone", required: false, 
 						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+					input "globalRboyDth", "bool", required: true, defaultValue:false, submitOnChange: true,
+						title: "I am using the RBoy DTH"
 					}
 				}	
 
@@ -366,10 +380,12 @@ def keypadCodeHandler(evt)
 	def damap=[dummy: "dummy"]				//dummy return map for Routine and Piston processing
 	
 //	Try to find a matching pin in the pin child apps	
-	def userApps = getChildApps()		//gets all completed child apps
+//	def userApps = getChildApps()		//gets all completed child apps Sep 20, 2018
+	def userApps = findAllChildAppsByName('SHM Delay User')
 	userApps.find 	
 		{
-		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	
+//		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	Sep 20, 2018
+		if (it.getInstallationState()=='COMPLETE' && it.theuserpin == codeEntered)	
 			{
 //			log.debug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
 //			verify burn cycles
@@ -387,9 +403,11 @@ def keypadCodeHandler(evt)
 					error_message = keypad.displayName + " Burned pin entered for " + it.theusername
 	    			}
 	    		}	
-			if (error_message == "" && codeEntered == '0000' && modeEntered == 0 && it.thepinIgnoreOff)
+			if (error_message == "" && codeEntered == '0000' && modeEntered == 0 && 
+				(it.thepinusage=='User' || it.thepinusage=='UserRoutinePiston') && it?.thepinIgnoreOff)
 				{
 				badPin=true
+				error_message=badPin_message
 				}
 			else	
 				{
@@ -919,7 +937,8 @@ def	keypadLighton(evt,theMode,keypad)
 	else
 	if (theMode == 'Night')					//Iris has no Night light set Partial on	
 		{
-		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 
+//		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
+		if (keypad?.getModelName()!="3405-L" || 
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
@@ -1366,6 +1385,3 @@ def doBadPinNotifications(localmsg, it)
 			}
 		}
 	}
-	
-	
-	
