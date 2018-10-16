@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 15, 2018 v2.1.9	 Move non keypad exit delay from SHM Delay Child to routine verify_version
+ *							symptom multiple non keypad exit delay messages being issued
+ *							issue: when non keypad exit times vary in delay profiles the minimum number is announced 
  *	Oct 10, 2018 v2.1.8	 Add support for RBOY DTH, add global dthrboy
  *	Sep 20, 2018 v2.1.7	 Change pin verification lookup reducing overhead in routine keypadcodehandler around line 376
  *	Jul 24	2018 v2.1.7	 Pin 0000 not User or UserRoutinePiston and ingore off was previously set, it was honored
@@ -115,7 +118,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.8";
+	return "2.1.9";
 	}
 def main()
 	{
@@ -1121,16 +1124,19 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def vuser=''
 	def vkpad=''
 	def vtalk=''
+	def vchildmindelay=9999
 	childApps.find 						//change from each to find to speed up the search
 		{
 //		log.debug "child ${it.getName()}"
-		if (vchild>'' && vmodefix>'' && vuser>''&& vkpad>''&& vtalk>'')
-			return true
-		else
+//		if (vchild>'' && vmodefix>'' && vuser>''&& vkpad>''&& vtalk>'')		removed V2.1.9 Oct 16, 2018
+//			return true														not getting minimum nonkeypad delay time
+//		else
 		if (it.getName()=="SHM Delay Child")	
 			{
 			if (vchild=='')
 				vchild=it?.version()
+			if (it?.theexitdelay < vchildmindelay)
+				vchildmindelay=it.theexitdelay					//2.1.0 Oct 15, 2018 get delay profile exit delay time
 			return false
 			}	
 		else
@@ -1177,6 +1183,61 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		log.debug "Execution failed ${e}"
 		}
 	qsse_status_mode(evt.value,false)
+
+//	Moved exitdelay non-keypad talk message to here from SHM Delay Child, V2.1.9 Oct 15, 2018
+	def vaway=evt?.value
+//	log.debug "Talker setup1 $vchildmindelay $vtalk $vaway" 
+
+	if (vtalk=='')			//talker profile not defined, return
+		return false
+	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
+		return false;
+	if (vchildmindelay == 9999)	//no non-keypad exit delay time?
+		return false;
+	if (evt?.value != 'away')	//not changed to away, return
+		return false
+	def locevent = [name:"shmdelaytalk", value: "exitDelayNkypd", isStateChange: true,
+		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+		data: vchildmindelay]
+	def alarm = location.currentState("alarmSystemStatus")
+	def alarmstatus = alarm?.value
+	if (alarmstatus != "away")
+		{return false}
+//	log.debug "Talker setup2 $vchildmindelay $vtalk" 
+	def lastupdt = alarm?.date.time
+	def alarmSecs = Math.round( lastupdt / 1000)
+
+//	get current time in seconds
+	def currT = now()
+	def currSecs = Math.round(currT / 1000)	//round back to seconds
+	def kSecs=0					//if defined in if statment it is lost after the if
+	def kMap
+	def kduration
+
+	if (globalKeypadControl)
+		{
+		kMap=atomicState['kMap']	//no data returns null
+		if (kMap>null)
+			{
+			kSecs = Math.round(kMap.dtim / 1000)
+			kduration=alarmSecs - kSecs
+//			log.debug "Talker fields $kSecs $alarmSecs $kduration $vchildmindelay" 
+			if (kduration > 8)
+				{
+				sendLocationEvent(locevent)
+//				log.debug "Away Talker from non keypad triggered"
+				}
+			}
+		else	// no atomic map issue message		
+			{
+			sendLocationEvent(locevent)
+			}
+		}	
+	else	
+		{
+		sendLocationEvent(locevent)
+		}
+
 	}	
 	
 //	Process response from async execution of version test to arnb.org

@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Oct 15	2018 v2.1.0  move nonkeypad event creation to SHM Delay. Issue multiple messages issued  
  *	Oct 10	2018 v2.0.9  Add Roby Dth support checking for not 3405-L vs = 3400  
  *	Jul 19	2018 v2.0.8  fix logic error created by 2.0.7 in new_monitor now has a true/false flag when called 
  *	Jul 19	2018 v2.0.7  Send open door message immediately on arming Run CheckStatus in new_monitor 
@@ -144,7 +145,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.9";
+	return "2.1.0";
 	}
 	
 def pageZeroVerify()
@@ -592,6 +593,7 @@ def childalarmStatusHandler(evt)
 		{return false}		// and we get it almost immediately
 	
 //	Jun 27, 2018 add logic to sendLocationEvent for SHM Delay Talk when away mode triggered by non keypad device
+/*	Moved to SHm Delay due to multiple messages being issued V2.1.0 Oct 15, 2018	
 	def alarm = location.currentState("alarmSystemStatus")
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
@@ -618,7 +620,8 @@ def childalarmStatusHandler(evt)
 			sendLocationEvent(locevent)
 			}
 		}	
-
+	
+*/
 	def theMode = location.currentMode	
 	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
 	
