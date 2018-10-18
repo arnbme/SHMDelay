@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 17, 2018 v2.2.0	 Use user exit delay settings in ModeFix to control exit delay on keypad
+ *						 When two or more keypads: each keypad gets unique exit delay time setting
  *	Oct 15, 2018 v2.1.9	 Move non keypad exit delay from SHM Delay Child to routine verify_version
  *							symptom multiple non keypad exit delay messages being issued
  *							issue: when non keypad exit times vary in delay profiles the minimum number is announced 
@@ -118,7 +120,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.9";
+	return "2.2.0";
 	}
 def main()
 	{
@@ -234,16 +236,29 @@ def globalsPage()
 				actions?.sort()
 				if (globalRboyDth)
 					{
-					input "globalKeypadDevices", "device.EnhancedZigBeeKeypadLock", required: false, multiple: true,
+					input "globalKeypadDevices", "device.EnhancedZigBeeKeypadLock", required: false, multiple: true, submitOnChange: true,
 						title: "Real Keypads used to arm and disarm SHM"
 					}
 				else	
 					{
-					input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true,
+					input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true, submitOnChange: true,
 						title: "Real Keypads used to arm and disarm SHM"
 					}
-				input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
-					title: "True exit delay in seconds when arming in Away mode from any keypad. range 0-90, default:30"
+				if (globalKeypadDevices.size() > 1)
+					{
+					def kpnm
+					globalKeypadDevices.each
+						{
+						kpnm=it.displayName.replaceAll(" ","_")	
+						input "globalKeypadExitDelay${kpnm}", "number", required: true, range: "0..90", defaultValue: 30,
+							title: "Device: ${kpnm}, Exit delay seconds when arming with a delay from this keypad. range 0-90, default:30"
+						}	
+					}
+				else
+					{
+					input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
+						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
+					}
 				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
 					title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
 				input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
@@ -629,23 +644,65 @@ def keypadCodeHandler(evt)
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 //	atomicState.badpins=0		//reset badpin count
 	def armModes=['Home','Stay','Night','Away']
+	def alarmModes=['home','stay','stay','away']
 	def message = keypad.displayName + "\nset mode to " + armModes[modeEntered] + "\nwith pin for " + userName
 	def aMap = [data: [codeEntered: codeEntered, armMode: armModes[modeEntered]]]
-	if (modeEntered==3 && globalKeypadExitDelay > 0)	//in away mode process Exit Delay when requested
+	def mf
+	def am
+	def daexitdelay=false
+	def internalExitDelay=30		//set a default just in case
+	if (globalKeypadDevices.size() > 1)
+		{
+		def kpnm=keypad.displayName.replaceAll(" ","_")
+//		log.debug "keypad is $kpnm"
+		if ("globalKeypadExitDelay${kpnm}")
 			{
-			globalKeypadDevices.each
-				{
-				it.setExitDelay(globalKeypadExitDelay)
-				}
-			runIn(globalKeypadExitDelay, execRoutine, aMap)
-			qsse_status_mode(false,"Exit%20Delay")
-			def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
-    			displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
-    			data: globalKeypadExitDelay]
-    		sendLocationEvent(locevent)
+			internalExitDelay=settings."globalKeypadExitDelay${kpnm}"
+//			log.debug "keypad ${kpnm} used, setting exit delay to ${internalExitDelay}"
 			}
 		else
-			{execRoutine(aMap.data)}	
+		if (globalKeypadExitDelay)
+			{
+//			log.debug "Did not find setting for ${kpnm} using global default setting"
+			internalExitDelay=globalKeypadExitDelay}
+		}
+	else
+	if (globalKeypadExitDelay)
+		{
+//		log.debug "less than two keypads defined using global default"
+		internalExitDelay=globalKeypadExitDelay
+		}
+		
+	if (modeEntered > 0 && internalExitDelay > 0)
+		{
+		mf=findChildAppByName('SHM Delay ModeFix')
+//		log.debug "${mf.getInstallationState()} ${mf.version()}"
+		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
+			{
+			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
+			daexitdelay = mf."${am}"
+//			log.debug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
+			}
+		else
+		if (modeEntered==3)
+			{daexitdelay=true}
+		}	
+	if (daexitdelay)
+		{
+		log.debug "entered exit delay for $am delay: ${internalExitDelay}"
+		globalKeypadDevices.each
+			{
+			it.setExitDelay(internalExitDelay)
+			}
+		runIn(internalExitDelay, execRoutine, aMap)
+		def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
+			displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+			data: internalExitDelay]	
+		sendLocationEvent(locevent)
+		qsse_status_mode(false,"Exit%20Delay")
+		}
+	else
+		{execRoutine(aMap.data)}
 	doPinNotifications(message,itext)
 
 //	Process remainder of UserRoutinePiston settings
@@ -1187,7 +1244,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 //	Moved exitdelay non-keypad talk message to here from SHM Delay Child, V2.1.9 Oct 15, 2018
 	def vaway=evt?.value
 //	log.debug "Talker setup1 $vchildmindelay $vtalk $vaway" 
-
+	
 	if (vtalk=='')			//talker profile not defined, return
 		return false
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
