@@ -304,4 +304,11 @@ def TalkerHandler(evt)
 			theSpeakers.playTextAndResume(msgout,theVolume)
 			}
 		}
-	}
+	if (evt.value=="ArmCancel" && delaydata>"")
+		{
+		if (theTTS)
+			{theTTS.speak(delaydata)}					
+		if (theSpeakers)
+			{theSpeakers.playTextAndResume(delaydata,theVolume)}
+		}
+	}	

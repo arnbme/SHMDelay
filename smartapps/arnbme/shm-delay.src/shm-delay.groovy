@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 21, 2018 v2.2.1	 Check for open user defined contacts prior to arming (will not arm or set exit delay)
+ *						 separate setting for away and stay alarm states
  *	Oct 17, 2018 v2.2.0	 Use user exit delay settings in ModeFix to control exit delay on keypad
  *						 When two or more keypads: each keypad gets unique exit delay time setting
  *	Oct 15, 2018 v2.1.9	 Move non keypad exit delay from SHM Delay Child to routine verify_version
@@ -312,11 +314,25 @@ def globalsPage()
 						}
 					input "globalBadPinPhone", "phone", required: false, 
 						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-					input "globalRboyDth", "bool", required: true, defaultValue:false, submitOnChange: true,
-						title: "I am using the RBoy DTH"
 					}
 				}	
 
+			input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
+				title: "(Optional!) Contacts must be closed prior to arming Away from a Keypad"
+			if (globalAwayContacts)
+				{
+				input (name: "globalAwayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+					title: "How to notify contact is open, arming Away")
+				}
+			input "globalStayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple:true,
+				title: "(Optional!) Contacts must be closed prior to arming Stay from a Keypad."
+			if (globalStayContacts)
+				{
+				input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+					title: "How to notify contact is open arming Stay")
+				}
+			input "globalRboyDth", "bool", required: true, defaultValue:false, submitOnChange: true,
+				title: "I am using the RBoy DTH"
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
 				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 			input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
@@ -638,7 +654,28 @@ def keypadCodeHandler(evt)
 		keypad.sendInvalidKeycodeResponse()			//sounds a medium duration beep
 		return
 		}
-		
+
+//	Oct 21, 2018 verify contacts are closed prior to arming or exit delay
+//	Message sensor, sensor open, Arming cancelled
+	if (modeEntered > 0)
+		{
+		log.debug "checking for open contacts"
+		if (modeEntered == 3)
+			{
+			if (globalAwayContacts)
+				{
+				if (!checkOpenContacts(globalAwayContacts, globalAwayNotify, keypad))
+					return
+				}
+			}
+		else
+		if (globalStayContacts)
+			{
+			if(!checkOpenContacts(globalStayContacts, globalStayNotify, keypad))
+				return
+			}	
+		}	
+
 	keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
 	acknowledgeArmRequest(modeEntered,keypad);
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
@@ -664,7 +701,8 @@ def keypadCodeHandler(evt)
 		if (globalKeypadExitDelay)
 			{
 //			log.debug "Did not find setting for ${kpnm} using global default setting"
-			internalExitDelay=globalKeypadExitDelay}
+			internalExitDelay=globalKeypadExitDelay
+			}
 		}
 	else
 	if (globalKeypadExitDelay)
@@ -1503,3 +1541,56 @@ def doBadPinNotifications(localmsg, it)
 			}
 		}
 	}
+
+def checkOpenContacts (contactList, notifyOptions, keypad)
+	{
+	def contactmsg=''
+//	log.debug "contact list entered $contactList $notifyOptions $keypad"
+	contactList.each
+		{
+		log.debug "${it} ${it.currentContact}"
+		if (it.currentContact=="open")
+			{
+			if (contactmsg == '')
+				{
+				keypad.sendInvalidKeycodeResponse()
+				contactmsg = 'Arming cancelled. Close '+it.displayName
+				}
+			else
+				contactmsg += ', '+it.displayName
+			}
+		}
+	if (contactmsg>'')
+		{
+		notifyOptions.each
+			{
+//			log.debug "$it"
+			if (it=='Notification log')
+				{
+				sendNotificationEvent(contactmsg)
+				}
+			else
+			if (it=='Push Msg')
+				{sendPushMessage(contactmsg)}
+			else
+			if (it=='SMS' && globalPinPhone)
+				{
+				def phones = globalPinPhone.split(";")
+				for (def i = 0; i < phones.size(); i++)
+					{
+					sendSmsMessage(phones[i], contactmsg)
+					}
+				}
+			else
+			if (it=='Talk')
+				{
+				def loceventcan = [name:"shmdelaytalk", value: "ArmCancel", isStateChange: true,
+					displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+					data: contactmsg]	
+				sendLocationEvent(loceventcan)
+				}
+			}
+		return false
+		}
+	return true	
+	}	
