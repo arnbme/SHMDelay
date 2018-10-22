@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 22, 2018 v2.2.1	 Repackage some settings and adujst some text, no logic changes
  *	Oct 21, 2018 v2.2.1	 Check for open user defined contacts prior to arming (will not arm or set exit delay)
  *						 separate setting for away and stay alarm states
  *	Oct 17, 2018 v2.2.0	 Use user exit delay settings in ModeFix to control exit delay on keypad
@@ -122,7 +123,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.0";
+	return "2.2.1";
 	}
 def main()
 	{
@@ -215,20 +216,26 @@ def globalsPage()
 			input "globalDisable", "bool", required: true, defaultValue: false,
 				title: "Disable All Functions. Default: Off/False"
 			input "globalKeypadControl", "bool", required: true, defaultValue: false, submitOnChange: true,
-				title: "Activate Total Keypad Control. Default: Off/False"
+				title: "A Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: Off/False"
 			input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
-				title: "Issue intrusion message with name of triggering real sensor? Default: On/True."
+				title: "This app issues an intrusion message with name of triggering real sensor? Default: On/True."
 			input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
-				title: "Add 3 digit emergency call number on intrusion message?")
+				title: "Add 3 digit emergency call number on this app's intrusion message?")
 			input "globalPolice", "phone", required: false, 
-				title: "Include this phone number as a link on the intrusion message? Separate multiple phone numbers with a semicolon(;)"
-			input "globalMultipleMotion", "bool", required: true, defaultValue: true,
-				title: "Allow Multiple Motion Sensors in Delay Profile. Default: On/True" 
+				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a semicolon(;)"
 			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
-				title: "Check other delay profiles when a motion sensor is defined in multiple delay profiles.\nDefault Off/False"
-			input "globalFixMode", "bool", required: true, defaultValue: false,
-				title: "Mode Fix: When AlarmState changes, fix Mode when invalid. Default: Off/False"
-//			input "globalKeypad", "bool", required: true, defaultValue: false,
+				title: "I have the same motion sensor defined in multiple delay profiles. Stop false motion sensor triggered alarms by cross checking for sensor in other delay profiles.\nDefault Off/False"
+			if (globalKeypadControl)
+				{
+				input "globalFixMode", "bool", required: true, defaultValue: true,
+					title: "Mode Fix: When Alarm State or SHM Mode changes, adjust keypad and syncronize system. Default: On/True"
+				}
+			else	
+				{
+				input "globalFixMode", "bool", required: true, defaultValue: false,
+					title: "Mode Fix: When Alarm State or SHM Mode changes, syncronize system. Default: Off/False"
+				}
+//			input "globalKeypad", "bool", required: true, defaultValue: false,		//deprecated Was used with Version1
 //				title: "The upgraded Keypad module is installed Default: Off/False"
 			input "globalTrueNight", "bool", required: true, defaultValue: false, 
 				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
@@ -315,28 +322,30 @@ def globalsPage()
 					input "globalBadPinPhone", "phone", required: false, 
 						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
 					}
-				}	
 
-			input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
-				title: "(Optional!) Contacts must be closed prior to arming Away from a Keypad"
-			if (globalAwayContacts)
-				{
-				input (name: "globalAwayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
-					title: "How to notify contact is open, arming Away")
+				input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
+					title: "(Optional!) Contacts must be closed prior to arming Away from a Keypad"
+				if (globalAwayContacts)
+					{
+					input (name: "globalAwayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+						title: "How to notify contact is open, arming Away")
+					}
+				input "globalStayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple:true,
+					title: "(Optional!) Contacts must be closed prior to arming Stay from a Keypad."
+				if (globalStayContacts)
+					{
+					input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+						title: "How to notify contact is open arming Stay")
+					}
+				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
+					title: "I am using the RBoy Keypad DTH"
 				}
-			input "globalStayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple:true,
-				title: "(Optional!) Contacts must be closed prior to arming Stay from a Keypad."
-			if (globalStayContacts)
-				{
-				input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
-					title: "How to notify contact is open arming Stay")
-				}
-			input "globalRboyDth", "bool", required: true, defaultValue:false, submitOnChange: true,
-				title: "I am using the RBoy DTH"
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
 				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
 			input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
 				title: "True Entry Delay: This is a last resort when adding motion sensors to delay profile does not stop Intrusion Alert. AlarmState Away and Stay with an entry delay time, ignore triggers from all other sensors when Monitored Contact Sensor opens. Default: Off/False"
+			input "globalMultipleMotion", "bool", required: true, defaultValue: true,
+				title: "Allow Multiple Motion Sensors in Delay Profile. Default: On/True" 
 			}
 		}
 	}	
@@ -1548,7 +1557,7 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 //	log.debug "contact list entered $contactList $notifyOptions $keypad"
 	contactList.each
 		{
-		log.debug "${it} ${it.currentContact}"
+//		log.debug "${it} ${it.currentContact}"
 		if (it.currentContact=="open")
 			{
 			if (contactmsg == '')
