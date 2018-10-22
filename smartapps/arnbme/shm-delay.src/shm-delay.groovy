@@ -228,12 +228,12 @@ def globalsPage()
 			if (globalKeypadControl)
 				{
 				input "globalFixMode", "bool", required: true, defaultValue: true,
-					title: "Mode Fix: When Alarm State or SHM Mode changes, adjust keypad and syncronize system. Default: On/True"
+					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm state\nthen set keypad status and lights to match system. Default: On/True"
 				}
 			else	
 				{
 				input "globalFixMode", "bool", required: true, defaultValue: false,
-					title: "Mode Fix: When Alarm State or SHM Mode changes, syncronize system. Default: Off/False"
+					title: "Mode Fix: When Alarm State changes - verify and set a valid SHM mode; when SHM Mode changes - verify and set Alarm stateset, then set keypad status and lights to match system. Default: Off/False"
 				}
 //			input "globalKeypad", "bool", required: true, defaultValue: false,		//deprecated Was used with Version1
 //				title: "The upgraded Keypad module is installed Default: Off/False"
@@ -277,7 +277,7 @@ def globalsPage()
 				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
 					title: "Keypad Away/On executes Routine. Default: Goodbye!"
 				input "globalPanic", "bool", required: true, defaultValue: true,
-					title: "Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
+					title: "Iris Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
 //				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
 //				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
