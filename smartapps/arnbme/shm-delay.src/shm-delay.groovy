@@ -216,7 +216,7 @@ def globalsPage()
 			input "globalDisable", "bool", required: true, defaultValue: false,
 				title: "Disable All Functions. Default: Off/False"
 			input "globalKeypadControl", "bool", required: true, defaultValue: false, submitOnChange: true,
-				title: "A Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: Off/False"
+				title: "A real or simulated Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: Off/False"
 			input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
 				title: "This app issues an intrusion message with name of triggering real sensor? Default: On/True."
 			input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
@@ -228,12 +228,12 @@ def globalsPage()
 			if (globalKeypadControl)
 				{
 				input "globalFixMode", "bool", required: true, defaultValue: true,
-					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm state\nthen set keypad status and lights to match system. Default: On/True"
+					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm state\nthen set keypad status and lights to match system.\nDefault: On/True"
 				}
 			else	
 				{
 				input "globalFixMode", "bool", required: true, defaultValue: false,
-					title: "Mode Fix: When Alarm State changes - verify and set a valid SHM mode; when SHM Mode changes - verify and set Alarm stateset, then set keypad status and lights to match system. Default: Off/False"
+					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm status.\nDefault: Off/False"
 				}
 //			input "globalKeypad", "bool", required: true, defaultValue: false,		//deprecated Was used with Version1
 //				title: "The upgraded Keypad module is installed Default: Off/False"
