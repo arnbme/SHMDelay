@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 26, 2018 v2.2.1	 Fix bug testing globalKeypadDevices size when it doew not exist
  *	Oct 22, 2018 v2.2.1	 Repackage some settings and adujst some text, no logic changes
  *	Oct 21, 2018 v2.2.1	 Check for open user defined contacts prior to arming (will not arm or set exit delay)
  *						 separate setting for away and stay alarm states
@@ -253,7 +254,7 @@ def globalsPage()
 					input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true, submitOnChange: true,
 						title: "Real Keypads used to arm and disarm SHM"
 					}
-				if (globalKeypadDevices.size() > 1)
+				if (globalKeypadDevices && globalKeypadDevices.size() > 1)
 					{
 					def kpnm
 					globalKeypadDevices.each
@@ -697,7 +698,7 @@ def keypadCodeHandler(evt)
 	def am
 	def daexitdelay=false
 	def internalExitDelay=30		//set a default just in case
-	if (globalKeypadDevices.size() > 1)
+	if (globalKeypadDevices && globalKeypadDevices.size() > 1)
 		{
 		def kpnm=keypad.displayName.replaceAll(" ","_")
 //		log.debug "keypad is $kpnm"
