@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Oct 27, 2018 v2.2.1	 Fix bug selecting keypad devices with Rboy Dth, move Rboy input selector to place that makes sense
  *	Oct 26, 2018 v2.2.1	 Fix bug testing globalKeypadDevices size when it doew not exist
  *	Oct 22, 2018 v2.2.1	 Repackage some settings and adujst some text, no logic changes
  *	Oct 21, 2018 v2.2.1	 Check for open user defined contacts prior to arming (will not arm or set exit delay)
@@ -242,11 +243,13 @@ def globalsPage()
 				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
 			if (globalKeypadControl)
 				{
+				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
+					title: "I am using the RBoy Keypad DTH"
 				def actions = location.helloHome?.getPhrases()*.label
 				actions?.sort()
 				if (globalRboyDth)
 					{
-					input "globalKeypadDevices", "device.EnhancedZigBeeKeypadLock", required: false, multiple: true, submitOnChange: true,
+					input "globalKeypadDevices", "device.EnhancedZigbeeKeypadLock", required: false, multiple: true, submitOnChange: true,
 						title: "Real Keypads used to arm and disarm SHM"
 					}
 				else	
@@ -338,8 +341,6 @@ def globalsPage()
 					input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
 						title: "How to notify contact is open arming Stay")
 					}
-				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
-					title: "I am using the RBoy Keypad DTH"
 				}
 			input "globalSimUnique", "bool", required: false, defaultValue:false,
 				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
