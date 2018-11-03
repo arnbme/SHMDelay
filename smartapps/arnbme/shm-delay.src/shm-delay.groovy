@@ -20,6 +20,11 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Nov 03, 2018 v2.2.1	 Adjust logic per Rboy suggestions
+ *							Change Name of Rboy DTH
+ *							When RBoy DTH do not issue: acknowledgeArmRequest and sendInvalidKeycodeResponse
+ *							On install and Rboy DTH execute disableInvalidPinLogging(true) stops Rboy dth from issuing acknowledgement 
+ *							On uninstall execute disableInvalidPinLogging(false) when it exists in DTH 
  *	Oct 27, 2018 v2.2.1	 Fix bug selecting keypad devices with Rboy Dth, move Rboy input selector to place that makes sense
  *	Oct 26, 2018 v2.2.1	 Fix bug testing globalKeypadDevices size when it doew not exist
  *	Oct 22, 2018 v2.2.1	 Repackage some settings and adujst some text, no logic changes
@@ -244,7 +249,7 @@ def globalsPage()
 			if (globalKeypadControl)
 				{
 				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
-					title: "I am using the RBoy Keypad DTH"
+					title: "I am using the RBoy Apps Keypad DTH"
 				def actions = location.helloHome?.getPhrases()*.label
 				actions?.sort()
 				if (globalRboyDth)
@@ -373,10 +378,25 @@ def initialize()
 			{
 		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
 		    }
+		globalKeypadDevices?.each
+			{
+			if (it.hasCommand("disableInvalidPinLogging"))
+				it.disableInvalidPinLogging(true)
+			}
 		}
 	subscribe(location, "alarmSystemStatus", verify_version)
 	verify_version("dummy_evt")
 	}	
+
+def uninstalled()
+	{
+	globalKeypadDevices?.each
+		{
+		if (it.hasCommand("disableInvalidPinLogging"))
+			it.disableInvalidPinLogging(false)
+		}
+	}
+
 //  --------------------------Keypad support added Mar 02, 2018 V2-------------------------------
 /*				Basic location modes are Home, Night, Away. This can be very confusing
 Xfinity			Default mode
@@ -411,7 +431,8 @@ def keypadCodeHandler(evt)
 	if (modeEntered < 0 || modeEntered> 3)				//catch an unthinkable bad mode, this is catastrophic 
 		{
 		log.error "${app.label}: Unexpected arm mode ${modeEntered} sent by keypad!"
-		keypad.sendInvalidKeycodeResponse()
+		if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+			keypad.sendInvalidKeycodeResponse()
 		return false
 		}
 //	def currentarmMode = keypad.currentValue('armMode')
@@ -557,7 +578,8 @@ def keypadCodeHandler(evt)
 						break
 					case 'Routine':
 //						forced to do acknowledgeArmRequest here due to a hardware timeout on keypad
-						keypad.acknowledgeArmRequest(4)				
+						if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+							keypad.acknowledgeArmRequest(4)				
 						acknowledgeArmRequest(4,keypad);
 						fireBadPin=false
 						damap=process_routine(it, modeEntered, keypad)
@@ -582,7 +604,8 @@ def keypadCodeHandler(evt)
 						break
 					case 'Piston':
 //						forced to do acknowledgeArmRequest here due to a possible hardware timeout on keypad
-						keypad.acknowledgeArmRequest(4)				
+						if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+							keypad.acknowledgeArmRequest(4)				
 						acknowledgeArmRequest(4,keypad);
 						fireBadPin=false
 						damap=process_piston(it, modeEntered, keypad)
@@ -628,7 +651,8 @@ def keypadCodeHandler(evt)
 		{
 		if (fireBadPin)
 			{
-			keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
+			if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+				keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
 			acknowledgeArmRequest(4,keypad);
 			}
 		if (globalBadPinMsgs && badPin_message !="")
@@ -637,7 +661,8 @@ def keypadCodeHandler(evt)
 **		Deprecated this logic on Mar 18, 2018 for better overall operation
 		if (globalBadPins==1)
 			{
-			keypad.acknowledgeArmRequest(4)			//sounds a very long beep
+			if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+				keypad.acknowledgeArmRequest(4)			//sounds a very long beep
 			acknowledgeArmRequest(4,keypad);
 			}
 		else
@@ -647,13 +672,17 @@ def keypadCodeHandler(evt)
 	    	atomicState.badpins = atomicState.badpins + 1
 	    	if (atomicState.badpins >= globalBadpins)
 	    		{
-				keypad.acknowledgeArmRequest(4)		//sounds a very long beep
+				if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+					keypad.acknowledgeArmRequest(4)		//sounds a very long beep
 				acknowledgeArmRequest(4,keypad);
 				atomicState.badpins = 0
     			}
 			else
-				keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
+				{
+				if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+					keypad.sendInvalidKeycodeResponse()	//sounds a medium duration beep
 				acknowledgeArmRequest(4,keypad);
+				}
     		}	
 */		return;
  		}
@@ -662,7 +691,8 @@ def keypadCodeHandler(evt)
 //	was this pin associated with a person
 	if (!userName)									//if not a user pin, no further processing
 		{
-		keypad.sendInvalidKeycodeResponse()			//sounds a medium duration beep
+		if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+			keypad.sendInvalidKeycodeResponse()			//sounds a medium duration beep
 		return
 		}
 
@@ -687,7 +717,8 @@ def keypadCodeHandler(evt)
 			}	
 		}	
 
-	keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
+	if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+		keypad.acknowledgeArmRequest(modeEntered) 		//keypad demands a followup light setting or all lights blink
 	acknowledgeArmRequest(modeEntered,keypad);
 	unschedule(execRoutine)		//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
 //	atomicState.badpins=0		//reset badpin count
@@ -1564,7 +1595,8 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 			{
 			if (contactmsg == '')
 				{
-				keypad.sendInvalidKeycodeResponse()
+				if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+					keypad.sendInvalidKeycodeResponse()
 				contactmsg = 'Arming cancelled. Close '+it.displayName
 				}
 			else
