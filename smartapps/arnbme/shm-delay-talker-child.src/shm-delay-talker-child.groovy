@@ -24,6 +24,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Nov 04, 2018 v1.0.3 Add support for generic quiet time per user request on messages
+ *						Delayed messages are super delayed by unknown cloud processing error, allow for no chime and instant speak
+ * 	Oct 21, 2018 v1.0.2	Support Arming Canceled messages from SHM Delay 
  * 	Jul 05, 2018 v1.0.1	correct non standard icon 
  * 	Jul 04, 2018 v1.0.1	Check for non Lannouner TTS devices and when true eliminate chime command 
  *	Jun 26, 2018 V1.0.0 Create from standalone module Keypad ExitDelay Talker
@@ -41,7 +44,7 @@ definition(
 
 def version()
 	{
-	return "1.0.1";
+	return "1.0.3";
 	}
 
 preferences {
@@ -102,6 +105,10 @@ def pageOne()
 				input "theEntryMsg", "string", required: false, title: "Entry message", 
 					defaultValue: "Please disarm Smart Home Monitor"
 				}
+			input(name: 'theStartTime', type: 'time', title: 'Do not talk: Start Time', required: false)
+			input(name: 'theEndTime', type: 'time', title: 'Do not talk: End Time', required: false)
+			input "theSoundChimes", "bool", defaultValue: true, required: false,
+				title: "Sound TTS Chimes with messages when using LanNouncer. If Cloud is slow and message delayed set false. Default: On/True"
 			input "theTTS", "capability.speechSynthesis", required: false, multiple: true, submitOnChange: true,
 				title: "LanNouncer/DLNA TTS Devices"
 			input "theSpeakers", "capability.audioNotification", required: false, multiple: true, submitOnChange: true,
@@ -152,7 +159,15 @@ def pageOne()
 def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	{
 	def error_data = ""
-		
+	if (theStartTime>"" && theEndTime>"")
+		{}
+	else
+	if (theStartTime>"")
+		error_data="Please set do not talk end time or clear do not talk start time"
+	else	
+	if (theEndTime>"")
+		error_data="Please set do not talk start time or clear do not talk end time"
+
 	if (error_data!="")
 		{
 		state.error_data=error_data.trim()
@@ -169,20 +184,35 @@ def pageTwo(error_data)
 	{
 	dynamicPage(name: "pageTwo", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
 		{
+		def chimes=true
+		def chimetxt='(Chime) '
+		try 
+			{chimes=theSoundChimes}
+		catch(Exception e)
+			{}
+		if (!chimes)
+			chimetxt=''
 		section
 			{
 			if (theExitMsgKypd)
-				paragraph "The Keypad Exit Delay Message is\n(Chime) ${theExitMsgKypd} (Chime)"
+				paragraph "The Keypad Exit Delay Message:\n${chimetxt}${theExitMsgKypd} ${chimetxt}"
 			else	
 				paragraph "The Keypad Exit Delay Message is not defined"
 			if (theExitMsgNkypd)
-				paragraph "The Non-Keypad Exit Delay Message is\n(Chime) ${theExitMsgNkypd} (Chime)"
+				paragraph "The Non-Keypad Exit Delay Message:\n${chimetxt}${theExitMsgNkypd} ${chimetxt}"
 			else	
 				paragraph "The Non-Keypad Exit Delay Message is not defined"
 			if (theEntryMsg)
-				paragraph "The Entry Delay Message is\n${theEntryMsg}"
+				paragraph "The Entry Delay Message:\n${theEntryMsg}"
 			else	
 				paragraph "The Entry Delay Message is not defined"
+			if (theStartTime>"" && theEndTime>"")
+				paragraph "Quiet time active from ${theStartTime.substring(11,16)} to ${theEndTime.substring(11,16)}"	
+			else
+				paragraph "Quiet time is inactive"
+
+			if (!chimes)
+				paragraph "Chimes do not sound with messages"	
 			if (theTTS)
 				paragraph "The Text To Speech Devices are ${theTTS}"
 			else	
@@ -221,6 +251,30 @@ def TalkerHandler(evt)
 	def delaydata=evt?.data			//get the delay time 
 	def msgout
 	def nonnouncer=false
+	def chimes=true
+
+//	1.0.3 Nov 4, 2018 check time values for quiet
+	if (theStartTime>"" && theEndTime>"")
+		{
+		def between = timeOfDayIsBetween(theStartTime.substring(11,16), theEndTime.substring(11,16), new Date(), location.timeZone)
+		if (between)
+			{
+//			log.debug ("it is quiet time")	
+			return false
+			}
+		}
+//	log.debug ("not quiet time")	
+
+//	1.0.3 Nov 4, 2018 Set Chimes sound
+	try 
+		{chimes=theSoundChimes}
+	catch(Exception e)
+		{}
+//	if (chimes)
+//		log.debug "chime on"
+//	else
+//		log.debug "chime off"	
+
 	if (theTTS)
 		{
 		theTTS.find
@@ -244,7 +298,7 @@ def TalkerHandler(evt)
 			msgout=theEntryMsg
 		if (theTTS)
 			{
-			if (nonnouncer)
+			if (nonnouncer || chimes==false)
 				{theTTS.speak(msgout)}
 			else		
 				{
@@ -267,7 +321,7 @@ def TalkerHandler(evt)
 			msgout=theExitMsgKypd
 		if (theTTS)
 			{
-			if (nonnouncer)
+			if (nonnouncer || chimes==false)
 				{theTTS.speak(msgout)}
 			else		
 				{
@@ -290,7 +344,7 @@ def TalkerHandler(evt)
 			msgout=theExitMsgNkypd
 		if (theTTS)
 			{
-			if (nonnouncer)
+			if (nonnouncer || chimes==false)
 				theTTS.speak(msgout, [delay: 2000])					//allows Bigtalker to speak armed in away mode msg
 			else		
 				{
