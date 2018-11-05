@@ -18,6 +18,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Oct 17, 2018	v0.1.5	Allow user to setdeterimine if entry and exit delays occur for a state/mode combination
+ *								
  * 	Apr 24, 2018	v0.1.4	For Xfinity and Centralite model 3400 keypad on armed (Home) modes 
  *								add device icon button to light Stay (Entry Delay) or Night (Instant Intrusion)
  *								
@@ -52,7 +54,7 @@ preferences {
 
 def version()
 	{
-	return "0.1.4";
+	return "0.1.5";
 	}
 
 def pageOne(error_msg)
@@ -89,6 +91,13 @@ def pageOne(error_msg)
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
 				title: "Default Mode: Armed Away"
+			awayModes.each
+				{
+				input "awayExit${it.value}", "bool", required: true, defaultValue: true,
+					title: "Create Exit Delay for Armed (Away) ${it.value} mode"
+				input "awayEntry${it.value}", "bool", required: true, defaultValue: true,
+					title: "Create Entry Delay for Armed (Away) ${it.value} mode"
+				}	
 			}	
 		section ("Alarm State: Armed (Home) aka Stay or Night")
 			{
@@ -96,6 +105,17 @@ def pageOne(error_msg)
 				title: "Valid Modes for Armed Home"
 			input "stayDefault", "mode", required: true, defaultValue: "Night",
 				title: "Default Mode for Armed Home"
+			stayModes.each
+				{
+				input "stayExit${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Exit Delay for Armed (Home) ${it.value} mode"
+				if (it.value =='Stay')
+					input "stayEntry${it.value}", "bool", required: true, defaultValue: true,
+						title: "Create Entry Delay for Armed (Home) ${it.value} mode"
+				else
+					input "stayEntry${it.value}", "bool", required: true, defaultValue: false,
+						title: "Create Entry Delay for Armed (Home) ${it.value} mode"
+				}	
 			}	
 		if (parent.globalKeypadControl)
 			{
@@ -191,7 +211,7 @@ def pageOneVerify() 				//edit page One
 
 def pageTwo()
 	{
-	dynamicPage(name: "pageTwo", title: "Mode settings verified, press 'Done' to install, press '<' to change, ", install: true, uninstall: true)
+	dynamicPage(name: "pageTwo", title: "Mode settings verified, press 'Done/Save' to install, press '<' to change, ", install: true, uninstall: true)
 		{
 /*		section
 			{
@@ -213,13 +233,28 @@ def pageTwo()
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
 				title: "Default Mode: Armed Away"
+			awayModes.each
+				{
+				input "awayExit${it.value}", "bool", required: true, defaultValue: true,
+					title: "Create Exit Delay for Armed (Away) ${it.value} mode"
+				input "awayEntry${it.value}", "bool", required: true, defaultValue: true,
+					title: "Create Entry Delay for Armed (Away) ${it.value} mode"
+				}	
 			}	
 		section ("Alarm State: Armed (Home) aka Stay or Night")
 			{
-			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night",
+			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night",  submitOnChange: true,
 				title: "Valid Modes for Armed Home"
 			input "stayDefault", "mode", required: true, defaultValue: "Night",
 				title: "Default Mode for Armed Home"
+			stayModes.each
+				{
+				input "stayExit${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Exit Delay for Armed (Home) ${it.value} mode"
+				input "stayEntry${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Entry Delay for Armed (Home) ${it.value} mode"
+				}	
+				
 			}	
 		if (parent.globalKeypadControl)
 			{

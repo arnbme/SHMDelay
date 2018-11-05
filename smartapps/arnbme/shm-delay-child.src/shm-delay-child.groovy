@@ -22,6 +22,9 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Oct 17, 2018 v2.1.1	 Use user entry delay settings in ModeFix to control it there is an entry delay.
+ *	Oct 15	2018 v2.1.0  move nonkeypad event creation to SHM Delay. Issue multiple messages issued  
+ *	Oct 10	2018 v2.0.9  Add Roby Dth support checking for not 3405-L vs = 3400  
  *	Jul 19	2018 v2.0.8  fix logic error created by 2.0.7 in new_monitor now has a true/false flag when called 
  *	Jul 19	2018 v2.0.7  Send open door message immediately on arming Run CheckStatus in new_monitor 
  *	Jun 27	2018 v2.0.6  Add logic to trigger SHM Delay Talker exitDelay when away mode triggered by non_keypad device 
@@ -143,7 +146,7 @@ preferences {
 
 def version()
 	{
-	return "2.0.8";
+	return "2.1.1";
 	}
 	
 def pageZeroVerify()
@@ -410,11 +413,10 @@ def pageTwo()
 				{
 				input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
 					title: "When arming in away mode without the keypad, set a simulated exit delay time in seconds from 0 to 90."
-				paragraph "When arming in away mode with a keypad the true exit delay is ${parent?.globalKeypadExitDelay} seconds."
 				}
 			else
 				input "theexitdelay", "number", required: true, range: "0..90", defaultValue: 30,
-					title: "When arming in away mode set an exit delay time in seconds from 0 to 90. When using lock-manager app's exit delay, set to 0"
+					title: "When arming in away mode set an exit delay time in seconds from 0 to 90."
 			input "themotiondelay", "number", required: true, range: "0..10", defaultValue: 0,
 				title: "When arming in away mode optional motion sensor entry delay time in seconds from 0 to 10, default:0. Usually not needed. Fixes a motion sensor reacting to door movement before contact sensor registers as open. Only when needed, suggested initial value is 5."
 			if (parent.globalKeypadControl)
@@ -591,6 +593,7 @@ def childalarmStatusHandler(evt)
 		{return false}		// and we get it almost immediately
 	
 //	Jun 27, 2018 add logic to sendLocationEvent for SHM Delay Talk when away mode triggered by non keypad device
+/*	Moved to SHm Delay due to multiple messages being issued V2.1.0 Oct 15, 2018	
 	def alarm = location.currentState("alarmSystemStatus")
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
@@ -617,7 +620,8 @@ def childalarmStatusHandler(evt)
 			sendLocationEvent(locevent)
 			}
 		}	
-
+	
+*/
 	def theMode = location.currentMode	
 	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
 	
@@ -854,6 +858,7 @@ def doorOpensHandler(evt)
 	def kSecs=0					//if defined in if statment it is lost after the if
 	def kMap
 	def currkeypadmode=""
+	def daentrydelay=true
 	if (parent?.globalKeypadControl)
 		{
 		kMap=parent?.atomicState.kMap
@@ -861,7 +866,8 @@ def doorOpensHandler(evt)
 //		Get the status of the first (non-Iris) 3400 keypad
 		parent?.globalKeypadDevices?.each
 			{
-			if (it.getModelName()=="3400" && currkeypadmode=="")
+//			if (it.getModelName()=="3400" && currkeypadmode=="")	Oct 10, 2018 add Rboy DTH support
+			if (it.getModelName()!="3405-L" && currkeypadmode=="")
 				{
 				currkeypadmode = it?.currentValue("armMode")
 				log.debug "keypad set currkeypadmode to $currkeypadmode"
@@ -892,7 +898,8 @@ def doorOpensHandler(evt)
 		}
 	else	
 //	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")) Mar 23, 2018
-	if (theentrydelay < 1 || (alarmstatus == "stay" && currkeypadmode!="armedStay"))
+//	if (theentrydelay < 1 || (alarmstatus == "stay" && currkeypadmode!="armedStay")) Oct 17, 2018
+	if (theentrydelay < 1)
 		{
 		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
 		if (theentrydelay<1)
@@ -904,6 +911,26 @@ def doorOpensHandler(evt)
 	else
 	if (alarmstatus == "stay" || alarmstatus == "away")
 		{
+		def mf=parent?.findChildAppByName('SHM Delay ModeFix')
+//		log.debug "${mf.getInstallationState()} ${mf.version()}"
+		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
+			{
+			def am="${alarmstatus}Entry${theMode}"
+			daentrydelay = mf."${am}"
+			log.debug "Version ${mf.version()} the daentrydelay is ${daentrydelay}"
+			}
+		else
+		if (alarmstatus == "stay" && currkeypadmode!="armedStay")
+			{daentrydelay=false}
+			
+		if (daentrydelay)
+			{}
+		else	
+			{
+			def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
+			soundalarm(aMap.data)
+			return false
+			}
 		if (themotiondelay > 0)
 			{
 			unschedule(waitfordooropen)
