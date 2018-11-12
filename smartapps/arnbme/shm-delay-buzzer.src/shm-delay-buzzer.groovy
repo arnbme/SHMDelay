@@ -33,7 +33,7 @@ definition(
 
 def version()
 	{
-	return "1.0.0";
+	return "1.0.1";
 	}
 
 preferences {
@@ -43,11 +43,11 @@ preferences {
 
 def pageOne()
 	{
-	dynamicPage(name: "pageOne", title: "Select Alarm Devices/Buzzers", install: true, uninstall: true)
+	dynamicPage(name: "pageOne", title: "Select Devices To Set On", install: true, uninstall: true)
 		{
-		section("The Alarm Devices / Buzzers")
+		section("The Devices")
 			{
-			input "theBuzzers", "capability.alarm", required: false, multiple: true
+			input "theBuzzers", "capability.switch", required: false, multiple: true
 				title: "Alarm/Buzzer Devices?"
 			}
 		}
@@ -73,8 +73,43 @@ def initialize() {
 
 def BuzzerHandler(evt)
 	{
-	log.debug("BuzzerHandler entered, event: ${evt.value} ${evt?.data}")
-	if (evt.value=="entryDelay" || evt.value=="exitDelay" || evt.value=="exitDelayNkypd")
+	def alarm = location.currentState("alarmSystemStatus")
+	def alarmstatus = alarm?.value
+	def delayMilli=0
+	log.debug("BuzzerHandler entered, event: ${evt.value} ${evt?.data} ${alarmstatus}")
+	
+	if (evt.value=="exitDelayNkypd")
+		{
+		if (evt?.data)
+			{
+			delayMilli= evt.data as Integer
+			delayMilli= delayMilli * 1000
+			}
+		else
+			return false
+		log.debug "delayMilli ${delayMilli}"		//testing code
+//		delayMilli=3000
+//		log.debug "delayMilli ${delayMilli}"
+		if (alarmstatus=='away')
+//			system already in away mode shut device in delay seconds
+			{
+           	log.debug("BuzzerHandler non keypad exit delay requested, system in away mode")
+			theBuzzers.on()
+			theBuzzers.off([delay: delayMilli])
+			}
+		else
+//			it is likely ST is running slow and is not in away mode, this really should not occur
+//			so issue a 2 second delayed on
+//			followed by a delay + 4 seconds to shut it
+			{
+           	log.debug("BuzzerHandler non keypad exit delay requested, but system not in away mode")
+			theBuzzers.on([delay: 2000])
+            delayMilli=delayMilli+4000
+			theBuzzers.off([delay: delayMilli])  
+			}
+		}
+	else
+	if (evt.value=="entryDelay" || evt.value=="exitDelay")
 		theBuzzers.on()
 	else
 	if (evt.value=="ArmCancel")
@@ -83,6 +118,6 @@ def BuzzerHandler(evt)
 
 def AlarmStatusHandler(evt)
 	{
-	log.debug("SHM changed to ${evt.value}, Buzzer off")
+	log.debug("SHM changed to ${evt.value}, Device off")
 	theBuzzers.off()
 	}	
