@@ -75,7 +75,7 @@ def BuzzerHandler(evt)
 	{
 	log.debug("BuzzerHandler entered, event: ${evt.value} ${evt?.data}")
 	if (evt.value=="entryDelay" || evt.value=="exitDelay" || evt.value=="exitDelayNkypd")
-		theBuzzers.alarm()
+		theBuzzers.on()
 	else
 	if (evt.value=="ArmCancel")
 		theBuzzers.off()
