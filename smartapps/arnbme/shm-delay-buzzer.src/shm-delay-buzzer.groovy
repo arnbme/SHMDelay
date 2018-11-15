@@ -1,5 +1,5 @@
 /**
- *  SHMDelay Buzzer
+ *  SHMDelay Buzzer being started twice??
  *  Created for Konnected Users to sound their Buzzer for entry and exit delays
  *  but supports using anything with an alarm capability
  *
@@ -19,6 +19,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Nov 14, 2018 v1.0.2 add logic for: nonkeypad exit set and system not in away mode
+ * 	Nov 12, 2018 v1.0.1 fix non keypad on / off and attempt to compensate slow ST cloud
  * 	Nov 12, 2018 v1.0.0 Create from SHM Delay Talker
  */
 definition(
@@ -33,7 +35,7 @@ definition(
 
 def version()
 	{
-	return "1.0.1";
+	return "1.0.2";
 	}
 
 preferences {
@@ -73,43 +75,48 @@ def initialize() {
 
 def BuzzerHandler(evt)
 	{
+	log.debug "BuzzerHandler entered"
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
 	def delayMilli=0
-	log.debug("BuzzerHandler entered, event: ${evt.value} ${evt?.data} ${alarmstatus}")
+	if (evt?.data)
+		{
+		delayMilli= evt.data as Integer
+		delayMilli= delayMilli * 1000
+		}
+	else
+		return false
 	
 	if (evt.value=="exitDelayNkypd")
 		{
-		if (evt?.data)
-			{
-			delayMilli= evt.data as Integer
-			delayMilli= delayMilli * 1000
-			}
-		else
-			return false
-		log.debug "delayMilli ${delayMilli}"		//testing code
-//		delayMilli=3000
-//		log.debug "delayMilli ${delayMilli}"
+		log.debug "BuzzerHandler entered, event: ${evt.value} ${evt?.data} ${alarmstatus}"
+//		log.debug "delayMilli ${delayMilli}"		//testing code
 		if (alarmstatus=='away')
-//			system already in away mode shut device in delay seconds
+//			system in away mode, normal processing
 			{
-           	log.debug("BuzzerHandler non keypad exit delay requested, system in away mode")
+           	log.debug "BuzzerHandler non keypad exit delay requested, system in away mode" 
 			theBuzzers.on()
 			theBuzzers.off([delay: delayMilli])
 			}
 		else
 //			it is likely ST is running slow and is not in away mode, this really should not occur
-//			so issue a 2 second delayed on
-//			followed by a delay + 4 seconds to shut it
+//			but this is ST so it likely will happen. Deal with it
+//			so cycle up to 5 times or 9 seconds, when away set or end of cycle issue commands.
 			{
-           	log.debug("BuzzerHandler non keypad exit delay requested, but system not in away mode")
-			theBuzzers.on([delay: 2000])
-            delayMilli=delayMilli+4000
-			theBuzzers.off([delay: delayMilli])  
+			log.debug "issue initial cycle"
+			unschedule(issueDelayedOn)		//just incase a delayed on is pending
+			def switch_map=[data:[cycles:5, delayMilli: delayMilli]]
+			runIn(1, issueDelayedOn, switch_map)
 			}
 		}
 	else
-	if (evt.value=="entryDelay" || evt.value=="exitDelay")
+	if (evt.value=="exitDelay")
+		{
+		theBuzzers.on()
+		theBuzzers.off([delay: delayMilli])
+		}
+	else
+	if (evt.value=="entryDelay")
 		theBuzzers.on()
 	else
 	if (evt.value=="ArmCancel")
@@ -118,6 +125,35 @@ def BuzzerHandler(evt)
 
 def AlarmStatusHandler(evt)
 	{
-	log.debug("SHM changed to ${evt.value}, Device off")
-	theBuzzers.off()
-	}	
+	log.debug("SHM changed to ${evt.value}, from ${evt.source} ${evt.device}, set devices off")
+	if (evt.value != 'away')
+		{
+		theBuzzers.off()
+		unschedule(issueDelayedOn)	//Attempt to handle any hanging delayed requests 
+		}
+	}
+	
+	
+def issueDelayedOn(switch_map)
+/*	When system is not armed: Wait for it to arm, then issue commands
+**	Limit time to 5 cycles around 9 seconds of waiting maximum
+*/		
+	{
+	def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
+	def alarmstatus = alarm.value
+	if (alarmstatus != "away")
+		{
+		log.debug "issueDelayedOn entered $switch_map"
+		if (switch_map.cycles > 1)
+			{
+			def cycles=switch_map.cycles-1
+			def delayMilli=switch_map.delayMilli
+			def newswitch_map=[data:[cycles: cycles, delayMilli: delayMilli]]
+			runIn(2, issueDelayedOn, newswitch_map)
+			return false
+			}
+		}
+	
+	theBuzzers.on()
+	theBuzzers.off([delay: delayMilli])
+	}
