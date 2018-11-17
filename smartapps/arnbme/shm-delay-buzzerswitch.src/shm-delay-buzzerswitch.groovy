@@ -21,7 +21,7 @@
  * 	Nov 17, 2018 v1.0.2 rename and clean up for production
  * 	Nov 14, 2018 v1.0.2 add logic for: nonkeypad exit set and system not in away mode
  * 	Nov 12, 2018 v1.0.1 fix non keypad on / off and attempt to compensate slow ST cloud
- * 	Nov 12, 2018 v1.0.0 Create from SHM Delay Talker
+ * 	Nov 12, 2018 v1.0.0 Create from SHM Delay Talkerx
  */
 definition(
     name: "SHM Delay BuzzerSwitch",
