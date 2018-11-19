@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Nov 19, 2018 V2.2.2  User exit event not running in SHM Delay BuzzerSwitch, modify routine verify_version()
  *	Nov 03, 2018 v2.2.1	 Adjust logic per Rboy suggestions
  *							Change Name of Rboy DTH
  *							When RBoy DTH do not issue: acknowledgeArmRequest and sendInvalidKeycodeResponse
@@ -130,7 +131,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.1";
+	return "2.2.2";
 	}
 def main()
 	{
@@ -1325,8 +1326,9 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def vaway=evt?.value
 //	log.debug "Talker setup1 $vchildmindelay $vtalk $vaway" 
 	
-	if (vtalk=='')			//talker profile not defined, return
-		return false
+//	Nov 19, 2018 V2.2.2 User exit event not running in SHM Delay BuzzerSwitch
+//	if (vtalk=='')			//talker profile not defined, return
+//		return false
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
 		return false;
 	if (vchildmindelay == 9999)	//no non-keypad exit delay time?
