@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Nov 30, 2018 V2.2.4  add additional panic subscribe when using RBoy DTH
  *	Nov 30, 2018 V2.2.4  Minor logic change for Iris V3 when testing for 3405-L
  *	Nov 19, 2018 V2.2.3  Test Modefix user settings for exit delay in verify version
  *	Nov 19, 2018 V2.2.2  User exit event not running in SHM Delay BuzzerSwitch, modify routine verify_version()
@@ -379,8 +380,10 @@ def initialize()
 		subscribe (location, "mode", keypadModeHandler)
 		if (globalPanic)
 			{
-		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
-		    }
+			subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
+			if (globalRboyDth)
+				subscribe (globalKeypadDevices, "button.pushed", keypadPanicHandler)
+			}
 		globalKeypadDevices?.each
 			{
 			if (it.hasCommand("disableInvalidPinLogging"))
