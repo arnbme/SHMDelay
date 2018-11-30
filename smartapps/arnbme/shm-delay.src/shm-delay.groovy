@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Nov 30, 2018 V2.2.4  Minor logic change for Iris V3 when testing for 3405-L
+ *	Nov 19, 2018 V2.2.3  Test Modefix user settings for exit delay in verify version
+ *	Nov 19, 2018 V2.2.2  User exit event not running in SHM Delay BuzzerSwitch, modify routine verify_version()
  *	Nov 03, 2018 v2.2.1	 Adjust logic per Rboy suggestions
  *							Change Name of Rboy DTH
  *							When RBoy DTH do not issue: acknowledgeArmRequest and sendInvalidKeycodeResponse
@@ -130,7 +133,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.1";
+	return "2.2.4";
 	}
 def main()
 	{
@@ -1078,7 +1081,8 @@ def	keypadLighton(evt,theMode,keypad)
 	if (theMode == 'Night')					//Iris has no Night light set Partial on	
 		{
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
-		if (keypad?.getModelName()!="3405-L" || 
+//		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
+		if (keypad?.getModelName()=="3400" || 
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
@@ -1247,6 +1251,7 @@ def getResponseHandler(response, data)
 	
 def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
 	{
+//	log.debug "evt data ${evt.getProperties().toString()}"	
 	def uri='https://www.arnb.org/shmdelay/'
 //	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
 //	uri+='&lon='+location.longitude
@@ -1262,6 +1267,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def vkpad=''
 	def vtalk=''
 	def vchildmindelay=9999
+	def mf								//modefix module
 	childApps.find 						//change from each to find to speed up the search
 		{
 //		log.debug "child ${it.getName()}"
@@ -1279,6 +1285,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		else
 		if (it.getName()=="SHM Delay ModeFix")				//should only have 1 profile
 			{
+			mf=it											//save app for later 
 			vmodefix=it?.version()
 			return false
 			}	
@@ -1325,22 +1332,43 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def vaway=evt?.value
 //	log.debug "Talker setup1 $vchildmindelay $vtalk $vaway" 
 	
-	if (vtalk=='')			//talker profile not defined, return
-		return false
+//	Nov 19, 2018 V2.2.2 User exit event not running in SHM Delay BuzzerSwitch
+//	if (vtalk=='')			//talker profile not defined, return
+//		return false
+
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
 		return false;
+
 	if (vchildmindelay == 9999)	//no non-keypad exit delay time?
 		return false;
-	if (evt?.value != 'away')	//not changed to away, return
+		
+//	Nov 19, 2018 V2.2.3 Check Modefix data if State/Mode has an exit delay
+	def daexitdelay=false
+
+	def theMode = location.currentMode
+	
+	if (evt?.value == "stay" || evt?.value == "away")
+		{
+		if (vmodefix > '0.1.4')
+			{
+			def am="${evt?.value}Exit${theMode}"
+			daexitdelay = mf."${am}"
+			log.debug "Modefix Version ${vmodefix} the daeexitdelay is ${daexitdelay} amtext: ${am}"
+			}
+		else
+		if (evt?.value == "away")
+			daexitdelay=true
+		}
+
+	if (!daexitdelay)
 		return false
+
 	def locevent = [name:"shmdelaytalk", value: "exitDelayNkypd", isStateChange: true,
 		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
 		data: vchildmindelay]
-	def alarm = location.currentState("alarmSystemStatus")
-	def alarmstatus = alarm?.value
-	if (alarmstatus != "away")
-		{return false}
+
 //	log.debug "Talker setup2 $vchildmindelay $vtalk" 
+	def alarm = location.currentState("alarmSystemStatus")
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
 
