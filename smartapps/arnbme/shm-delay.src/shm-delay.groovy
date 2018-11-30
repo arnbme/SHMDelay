@@ -378,7 +378,7 @@ def initialize()
 		subscribe (location, "mode", keypadModeHandler)
 		if (globalPanic)
 			{
-		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
+		    subscribe (globalKeypadDevices, "button.pushed", keypadPanicHandler)
 		    }
 		globalKeypadDevices?.each
 			{
