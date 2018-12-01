@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Nov 30, 2018 v2.1.2	 Add support for Iris V3 Dont check for 3405-L use 3400 again
  *	Oct 17, 2018 v2.1.1	 Use user entry delay settings in ModeFix to control it there is an entry delay.
  *	Oct 15	2018 v2.1.0  move nonkeypad event creation to SHM Delay. Issue multiple messages issued  
  *	Oct 10	2018 v2.0.9  Add Roby Dth support checking for not 3405-L vs = 3400  
@@ -146,7 +147,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.1";
+	return "2.1.2";
 	}
 	
 def pageZeroVerify()
@@ -867,7 +868,8 @@ def doorOpensHandler(evt)
 		parent?.globalKeypadDevices?.each
 			{
 //			if (it.getModelName()=="3400" && currkeypadmode=="")	Oct 10, 2018 add Rboy DTH support
-			if (it.getModelName()!="3405-L" && currkeypadmode=="")
+//			if (it.getModelName()!="3405-L" && currkeypadmode=="")  Nov 30, 2018 Rboy support for iris V3
+			if (it.getModelName()=="3400" && currkeypadmode=="")	
 				{
 				currkeypadmode = it?.currentValue("armMode")
 				log.debug "keypad set currkeypadmode to $currkeypadmode"

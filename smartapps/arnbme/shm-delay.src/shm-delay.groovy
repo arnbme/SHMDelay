@@ -20,6 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Nov 30, 2018 V2.2.4  add additional panic subscribe when using RBoy DTH
+ *	Nov 30, 2018 V2.2.4  Minor logic change for Iris V3 when testing for 3405-L
  *	Nov 19, 2018 V2.2.3  Test Modefix user settings for exit delay in verify version
  *	Nov 19, 2018 V2.2.2  User exit event not running in SHM Delay BuzzerSwitch, modify routine verify_version()
  *	Nov 03, 2018 v2.2.1	 Adjust logic per Rboy suggestions
@@ -132,7 +134,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.3";
+	return "2.2.4";
 	}
 def main()
 	{
@@ -378,8 +380,11 @@ def initialize()
 		subscribe (location, "mode", keypadModeHandler)
 		if (globalPanic)
 			{
-		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
-		    }
+			if (globalRboyDth)
+				subscribe (globalKeypadDevices, "button.pushed", keypadPanicHandler)
+			else	
+				subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
+			}
 		globalKeypadDevices?.each
 			{
 			if (it.hasCommand("disableInvalidPinLogging"))
@@ -1080,7 +1085,8 @@ def	keypadLighton(evt,theMode,keypad)
 	if (theMode == 'Night')					//Iris has no Night light set Partial on	
 		{
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
-		if (keypad?.getModelName()!="3405-L" || 
+//		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
+		if (keypad?.getModelName()=="3400" || 
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
