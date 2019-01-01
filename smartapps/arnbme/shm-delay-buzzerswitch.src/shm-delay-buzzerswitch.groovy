@@ -18,6 +18,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Jan 01, 2019 v1.1.0 optionally issue both command if available instead of on command, gives long duration sound
  * 	Nov 17, 2018 v1.0.2 rename and clean up for production
  * 	Nov 14, 2018 v1.0.2 add logic for: nonkeypad exit set and system not in away mode
  * 	Nov 12, 2018 v1.0.1 fix non keypad on / off and attempt to compensate slow ST cloud
@@ -35,7 +36,7 @@ definition(
 
 def version()
 	{
-	return "1.0.2";
+	return "1.1.0";
 	}
 
 preferences {
@@ -51,6 +52,8 @@ def pageOne()
 			{
 			input "theBuzzers", "capability.switch", required: false, multiple: true
 				title: "Devices with Switch/On/Off capbability"
+			input "useBoth", "bool", title: "My Konnected buzzer issues a short beep, I want a long beep",
+					defaultValue: false, required: false
 			}
 		}
 	}	
@@ -95,7 +98,7 @@ def BuzzerHandler(evt)
 //			system in away mode, normal processing
 			{
            	log.debug "BuzzerHandler non keypad exit delay requested, system in away mode" 
-			theBuzzers.on()
+			OnOrBoth()
 			theBuzzers.off([delay: delayMilli])
 			}
 		else
@@ -112,12 +115,12 @@ def BuzzerHandler(evt)
 	else
 	if (evt.value=="exitDelay")
 		{
-		theBuzzers.on()
+		OnOrBoth()
 		theBuzzers.off([delay: delayMilli])
 		}
 	else
 	if (evt.value=="entryDelay")
-		theBuzzers.on()
+		OnOrBoth()
 	else
 	if (evt.value=="ArmCancel")
 		theBuzzers.off()
@@ -154,6 +157,22 @@ def issueDelayedOn(switch_map)
 			}
 		}
 	
-	theBuzzers.on()
+	OnOrBoth()
 	theBuzzers.off([delay: delayMilli])
+	}
+
+def OnOrBoth()
+	{
+	if (useBoth)
+		{
+		theBuzzers.each()
+			{
+			if (it.hasCommand("both"))
+				it.both()
+			else	
+				it.on()
+			}	
+		}
+	else
+		theBuzzers.on()
 	}
