@@ -24,6 +24,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Dec 17, 2018 v1.0.4 Change speaker capability audioNotification to musicPlayer. Did not select Sonos speakers
  * 	Nov 04, 2018 v1.0.3 Add support for generic quiet time per user request on messages
  *						Delayed messages are super delayed by unknown cloud processing error, allow for no chime and instant speak
  * 	Oct 21, 2018 v1.0.2	Support Arming Canceled messages from SHM Delay 
@@ -44,7 +45,7 @@ definition(
 
 def version()
 	{
-	return "1.0.3";
+	return "1.0.4";
 	}
 
 preferences {
@@ -111,7 +112,7 @@ def pageOne()
 				title: "Sound TTS Chimes with messages when using LanNouncer. If Cloud is slow and message delayed set false. Default: On/True"
 			input "theTTS", "capability.speechSynthesis", required: false, multiple: true, submitOnChange: true,
 				title: "LanNouncer/DLNA TTS Devices"
-			input "theSpeakers", "capability.audioNotification", required: false, multiple: true, submitOnChange: true,
+			input "theSpeakers", "capability.musicPlayer", required: false, multiple: true, submitOnChange: true,
 				title: "Speaker Devices?"
 			input "theVolume", "number", required: true, range: "1..100", defaultValue: 40,
 				title: "Speaker Volume Level from 1 to 100"
