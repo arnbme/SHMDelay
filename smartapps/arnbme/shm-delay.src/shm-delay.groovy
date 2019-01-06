@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
+ *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
+ *								remove ,"" selection option						
  *	Nov 30, 2018 V2.2.4  add additional panic subscribe when using RBoy DTH
  *	Nov 30, 2018 V2.2.4  Minor logic change for Iris V3 when testing for 3405-L
  *	Nov 19, 2018 V2.2.3  Test Modefix user settings for exit delay in verify version
@@ -134,7 +137,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.4";
+	return "2.2.5";
 	}
 def main()
 	{
@@ -230,7 +233,7 @@ def globalsPage()
 				title: "A real or simulated Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: Off/False"
 			input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
 				title: "This app issues an intrusion message with name of triggering real sensor? Default: On/True."
-			input (name: "global911", type:"enum", required: false, options: ["911","999","112",""],
+			input (name: "global911", type:"enum", required: false, options: ["911","999","112"],
 				title: "Add 3 digit emergency call number on this app's intrusion message?")
 			input "globalPolice", "phone", required: false, 
 				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a semicolon(;)"
@@ -1086,7 +1089,8 @@ def	keypadLighton(evt,theMode,keypad)
 		{
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
 //		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
-		if (keypad?.getModelName()=="3400" || 
+//		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
+		if (['3400','3400-G'].contains(keypad?.getModelName()) ||
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")

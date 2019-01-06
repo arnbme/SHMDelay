@@ -18,7 +18,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- * 	Oct 17, 2018	v0.1.5	Allow user to setdeterimine if entry and exit delays occur for a state/mode combination
+ *	Jan 06, 2019 	V0.1.6  Added: Support for 3400_G Centralite V3
+ *
+ * 	Oct 17, 2018	v0.1.5	Allow user to set if entry and exit delays occur for a state/mode combination
  *								
  * 	Apr 24, 2018	v0.1.4	For Xfinity and Centralite model 3400 keypad on armed (Home) modes 
  *								add device icon button to light Stay (Entry Delay) or Night (Instant Intrusion)
@@ -41,6 +43,7 @@ definition(
     author: "Arn Burkhoff",
     description: "(${version()}) Fix the ST Mode and or Alarm State when using ST Dashboard to change AlarmState or Mode",
     category: "My Apps",
+	parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
     iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
@@ -54,7 +57,7 @@ preferences {
 
 def version()
 	{
-	return "0.1.5";
+	return "0.1.6";
 	}
 
 def pageOne(error_msg)
@@ -87,7 +90,7 @@ def pageOne(error_msg)
 				{
 				paragraph away_error_data
 				}
-			input "awayModes", "mode", required: true, multiple: true, defaultValue: "Away",
+			input "awayModes", "mode", required: true, multiple: true, defaultValue: "Away", submitOnChange: true,
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
 				title: "Default Mode: Armed Away"
@@ -101,7 +104,7 @@ def pageOne(error_msg)
 			}	
 		section ("Alarm State: Armed (Home) aka Stay or Night")
 			{
-			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night",
+			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night", submitOnChange: true,
 				title: "Valid Modes for Armed Home"
 			input "stayDefault", "mode", required: true, defaultValue: "Night",
 				title: "Default Mode for Armed Home"
@@ -229,7 +232,7 @@ def pageTwo()
 			}	
 		section ("Alarm State: Armed (Away)")
 			{
-			input "awayModes", "mode", required: true, multiple: true, defaultValue: "Away",
+			input "awayModes", "mode", required: true, multiple: true, defaultValue: "Away", submitOnChange: true,
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
 				title: "Default Mode: Armed Away"
@@ -262,7 +265,8 @@ def pageTwo()
 			parent.globalKeypadDevices.each
 				{ keypad ->
 				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
-				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+//				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+				if (['3400','3400-G'].contains(keypad?.getModelName()))
 					{showLights=true}
 				}					
 			if (showLights)
