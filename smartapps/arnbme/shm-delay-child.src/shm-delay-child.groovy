@@ -22,6 +22,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *
+ *	Jan 06, 2019 V2.1.3  Added: Support for 3400_G Centralite V3
  *	Nov 30, 2018 v2.1.2	 Add support for Iris V3 Dont check for 3405-L use 3400 again
  *	Oct 17, 2018 v2.1.1	 Use user entry delay settings in ModeFix to control it there is an entry delay.
  *	Oct 15	2018 v2.1.0  move nonkeypad event creation to SHM Delay. Issue multiple messages issued  
@@ -147,7 +149,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.2";
+	return "2.1.3";
 	}
 	
 def pageZeroVerify()
@@ -869,7 +871,8 @@ def doorOpensHandler(evt)
 			{
 //			if (it.getModelName()=="3400" && currkeypadmode=="")	Oct 10, 2018 add Rboy DTH support
 //			if (it.getModelName()!="3405-L" && currkeypadmode=="")  Nov 30, 2018 Rboy support for iris V3
-			if (it.getModelName()=="3400" && currkeypadmode=="")	
+//			if (it.getModelName()=="3400" && currkeypadmode=="")	Jan 06, 2019 Centralite V3 support	
+			if (['3400','3400-G'].contains(keypad?.getModelName()) && currkeypadmode=="")
 				{
 				currkeypadmode = it?.currentValue("armMode")
 				log.debug "keypad set currkeypadmode to $currkeypadmode"

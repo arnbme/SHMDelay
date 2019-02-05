@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
  *								remove ,"" selection option						
  *	Nov 30, 2018 V2.2.4  add additional panic subscribe when using RBoy DTH
@@ -136,7 +137,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.5";
+	return "2.2.6";
 	}
 def main()
 	{
@@ -1088,7 +1089,8 @@ def	keypadLighton(evt,theMode,keypad)
 		{
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
 //		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
-		if (keypad?.getModelName()=="3400" || 
+//		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
+		if (['3400','3400-G'].contains(keypad?.getModelName()) ||
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
