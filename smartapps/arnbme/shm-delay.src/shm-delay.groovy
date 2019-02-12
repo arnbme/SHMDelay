@@ -319,7 +319,7 @@ def globalsPage()
 					input "globalPinPhone", "phone", required: false, 
 						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
 					}
-				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
+				input "globalBadPinMsgs", "bool", required: true, defaultValue: true, submitOnChange: true,
 					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
 				if (globalBadPinMsgs)
 					{
