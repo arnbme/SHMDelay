@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
  *								remove ,"" selection option						
@@ -137,7 +138,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.6";
+	return "2.2.7";
 	}
 def main()
 	{
@@ -332,7 +333,7 @@ def globalsPage()
 						}
 					else	
 						{
-						input "globalPinPush", "bool", required: false, defaultValue:true,
+						input "globalBadPinPush", "bool", required: false, defaultValue:true,
 							title: "Send Bad Pin Push Notification?"
 						}
 					input "globalBadPinPhone", "phone", required: false, 
