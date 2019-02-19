@@ -20,7 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	Feb 12, 2019 V2.2.7  Attempt to fix issue on Apple devices where slider does not reset for pin messages (Beta only)
+ *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
  *								remove ,"" selection option						
@@ -138,7 +138,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.7A";
+	return "2.2.6";
 	}
 def main()
 	{
@@ -299,11 +299,11 @@ def globalsPage()
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
 //				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
 //					title: "(Future enhancement) Create intrusion alert after how many invalid pin code entries. 0 = disabled, range: 1-10, default: 4"
-				input "globalPinMsgs", "bool", required: true, defaultValue: true,
+				input "globalPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
 					title: "Log pin entries. Default: On/True"
 				if (globalPinMsgs)
 					{
-					input "globalPinLog", "bool", required: true, defaultValue:true,
+					input "globalPinLog", "bool", required: false, defaultValue:true,
 						title: "Log Pin to Notifications?"
 					if (location.contactBookEnabled)
 						{
@@ -313,17 +313,17 @@ def globalsPage()
 						}
 					else	
 						{
-						input "globalPinPush", "bool", required: true, defaultValue:true,
+						input "globalPinPush", "bool", required: false, defaultValue:true,
 							title: "Send Pin Push Notification?"
 						}
 					input "globalPinPhone", "phone", required: false, 
 						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
 					}
-				input "globalBadPinMsgs", "bool", required: true, defaultValue: true,
+				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
 					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
 				if (globalBadPinMsgs)
 					{
-					input "globalBadPinLog", "bool", required: true, defaultValue:true,
+					input "globalBadPinLog", "bool", required: false, defaultValue:true,
 						title: "Log Bad Pins to Notifications?"
 					if (location.contactBookEnabled)
 						{
@@ -333,7 +333,7 @@ def globalsPage()
 						}
 					else	
 						{
-						input "globalPinPush", "bool", required: true, defaultValue:true,
+						input "globalBadPinPush", "bool", required: false, defaultValue:true,
 							title: "Send Bad Pin Push Notification?"
 						}
 					input "globalBadPinPhone", "phone", required: false, 
