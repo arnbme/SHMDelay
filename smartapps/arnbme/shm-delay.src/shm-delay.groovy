@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Mar 03, 2019 v2.2.7T log debugging for exit delay issue
  *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
@@ -138,7 +139,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.7";
+	return "2.2.7T";
 	}
 def main()
 	{
@@ -201,20 +202,20 @@ def main()
 			{
 			section 
 				{
-				paragraph "Please read the documentation, review and set global settings, then complete the install by clicking 'Save' above. After the install completes, you may set Delay, User and Modefix profiles"
+				paragraph "Please review and set global settings, then complete the install by clicking 'Save' above. After the install completes, you may set Delay, User and Modefix profiles"
 				}
 			section
     			{
   				href(name: 'toglobalsPage', page: 'globalsPage', title: 'Globals Settings')
 				}	
 			}	
-		section
+/*		section
 			{
 			href (url: "https://community.smartthings.com/t/release-shm-delay-version-2-0/121800",
 			title: "Smartapp Documentation",
 			style: "external")
 			}
-		section
+*/		section
 			{
 			paragraph "SHM Delay Version ${version()}"
 			}
@@ -1260,7 +1261,7 @@ def getResponseHandler(response, data)
 	
 def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
 	{
-//	log.debug "evt data ${evt.getProperties().toString()}"	
+	log.debug "Entered Verify Version. evt data ${evt.getProperties().toString()}"	
 	def uri='https://www.arnb.org/shmdelay/'
 //	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
 //	uri+='&lon='+location.longitude
@@ -1345,6 +1346,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 //	if (vtalk=='')			//talker profile not defined, return
 //		return false
 
+	log.debug "vchildmindelay: ${vchildmindelay}"
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
 		return false;
 
@@ -1376,7 +1378,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
 		data: vchildmindelay]
 
-//	log.debug "Talker setup2 $vchildmindelay $vtalk" 
+	log.debug "Talker setup2 $vchildmindelay $vtalk" 
 	def alarm = location.currentState("alarmSystemStatus")
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
@@ -1388,6 +1390,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def kMap
 	def kduration
 
+	log.debug "Talker fields $kSecs $alarmSecs $vchildmindelay" 
 	if (globalKeypadControl)
 		{
 		kMap=atomicState['kMap']	//no data returns null
@@ -1409,6 +1412,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		}	
 	else	
 		{
+		log.debug "sending location event nonkeypad arming"
 		sendLocationEvent(locevent)
 		}
 
