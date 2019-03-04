@@ -248,7 +248,7 @@ def refresh() {
 		zigbee.readAttribute(0x0402,0x00)
 }
 
-private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
+private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss.SSS a z") {
 	if (time instanceof Long) {
     	time = new Date(time)
     }
@@ -599,7 +599,7 @@ def beep(def beepLength = settings.beepLength) {
 	List cmds = ["raw 0x501 {09 01 04 05${len}}",
 				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 	cmds
-//	return (cmds?.collect { new physicalgraph.device.HubAction(it) })
+//	return (cmds?.collect { new physicalgraph.device.HubAction(it) }
 }
 
 //------Utility methods------//
