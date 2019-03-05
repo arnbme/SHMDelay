@@ -202,7 +202,7 @@ def pageOne()
 		section
 			{	
 			input (name: "stateLimit", type:"enum", required: false, options: ["Away","Stay"],
-				title: "(Optional!) Limit this profile to a specific SHM armed state. Active in away and stay when not set")
+				title: "(Optional!) When system is armed, react to the real contact sensor opening only when armed: away or stay. Default: Always reacts when system armed")
 			}
 		section
 			{
