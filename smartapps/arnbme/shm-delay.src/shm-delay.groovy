@@ -20,7 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	Mar 03, 2019 v2.2.7T log debugging for exit delay issue
+ *	Mar 03, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows?
+ *	Mar 03, 2019 v2.2.8  add flag to turn deub messages on, default is off
+ *	Mar 03, 2019 v2.2.8  log debugging for exit delay issue
  *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
@@ -139,7 +141,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.7T";
+	return "2.2.8";
 	}
 def main()
 	{
@@ -153,7 +155,7 @@ def main()
 				{ child ->
 				def childLabel = child.getLabel()
 				def appid=app.getId()
-//				log.debug "child label ${childLabel} ${appid}"
+//				logdebug "child label ${childLabel} ${appid}"
 				if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
 					{
 					modeFixChild="Update"
@@ -163,6 +165,11 @@ def main()
 			if (globalFixMode || globalKeypadControl)
 				{modeActive=" Active"}
 			def fixtitle = modeFixChild + modeActive + " Mode Fix Settings"
+			section 
+				{
+				input "logDebugs", "bool", required: false, defaultValue:false,
+					title: "Log debugging messages? SHM Delay module only. Normally off/false"
+				}
 			section 
 				{
 				app(name: "EntryDelayProfile", appName: "SHM Delay Child", namespace: "arnbme", title: "Create A New Delay Profile", multiple: true)
@@ -238,7 +245,7 @@ def globalsPage()
 			input (name: "global911", type:"enum", required: false, options: ["911","999","112"],
 				title: "Add 3 digit emergency call number on this app's intrusion message?")
 			input "globalPolice", "phone", required: false, 
-				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a semicolon(;)"
+				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a semicolon(;), pound sign(#) or period(.)"
 			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
 				title: "I have the same motion sensor defined in multiple delay profiles. Stop false motion sensor triggered alarms by cross checking for sensor in other delay profiles.\nDefault Off/False"
 			if (globalKeypadControl)
@@ -318,7 +325,7 @@ def globalsPage()
 							title: "Send Pin Push Notification?"
 						}
 					input "globalPinPhone", "phone", required: false, 
-						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;), pound sign(#) or period(.)"
 					}
 				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
 					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
@@ -338,7 +345,7 @@ def globalsPage()
 							title: "Send Bad Pin Push Notification?"
 						}
 					input "globalBadPinPhone", "phone", required: false, 
-						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;), pound sign(#) or period(.)"
 					}
 
 				input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
@@ -367,12 +374,12 @@ def globalsPage()
 	}	
 
 def installed() {
-    log.debug "Installed with settings: ${settings}"
+    log.info "Installed with settings: ${settings}"
     initialize()
 }
 
 def updated() {
-    log.debug "Updated with settings: ${settings}"
+    log.info "Updated with settings: ${settings}"
     unsubscribe()
     initialize()
 }
@@ -434,7 +441,7 @@ def keypadCodeHandler(evt)
 	if (!globalKeypadControl || globalDisable)
 		{return false}			//just in case
 	def keypad = evt.getDevice();
-//	log.debug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
+//	logdebug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
 	def codeEntered = evt.value as String				//the entered pin
 	def modeEntered = evt.data as Integer				//the selected mode off(0), stay(1), night(2), away(3)
 	def itext = [dummy: "dummy"]						//external find it data or dummy map to fake it when pin not found										
@@ -448,7 +455,7 @@ def keypadCodeHandler(evt)
 		return false
 		}
 //	def currentarmMode = keypad.currentValue('armMode')
-//	log.debug("Delayv2 codeentryhandler searching user apps for keypad ${keypad.displayName} ${evt.data} ${evt.value}")
+//	logdebug("Delayv2 codeentryhandler searching user apps for keypad ${keypad.displayName} ${evt.data} ${evt.value}")
 	def userName=false;
 	def badPin=true;
 	def badPin_message = keypad.displayName + "\nInvalid pin: " + codeEntered
@@ -465,7 +472,7 @@ def keypadCodeHandler(evt)
 //		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	Sep 20, 2018
 		if (it.getInstallationState()=='COMPLETE' && it.theuserpin == codeEntered)	
 			{
-//			log.debug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
+//			logdebug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
 //			verify burn cycles
 			itext=it										//save for use outside of find loop
 			if (it.themaxcycles > 0)						//check if pin is burned
@@ -477,7 +484,7 @@ def keypadCodeHandler(evt)
 		    		{atomicState."${atomicUseId}" = atomicState."${atomicUseId}" + 1}
 		    	if (atomicState."${atomicUseId}" > it.themaxcycles)
 		    		{
-					log.debug "pin $codeEntered burned"
+					logdebug "pin $codeEntered burned"
 					error_message = keypad.displayName + " Burned pin entered for " + it.theusername
 	    			}
 	    		}	
@@ -492,7 +499,7 @@ def keypadCodeHandler(evt)
 				badPin=false
 				badPin_message=""
 				}
-//			log.debug "matched pin ${it.theuserpin} $it.pinScheduled"
+//			logdebug "matched pin ${it.theuserpin} $it.pinScheduled"
 //			When pin is scheduled verify Dates, Weekday and Time Range	
 			if (error_message=="" && it.pinScheduled)
 				{
@@ -510,7 +517,7 @@ def keypadCodeHandler(evt)
 					num_dtstart=it.dtEdit(it.pinStartDt)
 				if (it.pinEndDt > "")
 					num_dtend=it.dtEdit(it.pinEndDt)
-//				log.debug "pin found with schedule $nowymd $num_dtstart $num_dtend"
+//				logdebug "pin found with schedule $nowymd $num_dtstart $num_dtend"
 //				verify the dates
 				if (it.pinStartDt>"" && it.pinEndDt>"")
 					{
@@ -575,7 +582,7 @@ def keypadCodeHandler(evt)
 //			Verify pin usage
 			if (error_message=="")
 				{
-//				log.debug "processing the pin for ${it.thepinusage}"
+//				logdebug "processing the pin for ${it.thepinusage}"
 				switch (it.thepinusage)
 					{
 					case 'User':
@@ -595,7 +602,7 @@ def keypadCodeHandler(evt)
 						acknowledgeArmRequest(4,keypad);
 						fireBadPin=false
 						damap=process_routine(it, modeEntered, keypad)
-						log.debug "Routine created ${damap}"
+						logdebug "Routine created ${damap}"
 						if (damap?.err)
 							error_message=damap.err
 						else	
@@ -645,7 +652,7 @@ def keypadCodeHandler(evt)
 	if (error_message!="")									// put out any messages to notification log
 		{
 		badPin=true
-//		log.debug "${error_message} info ${info_message}"
+//		logdebug "${error_message} info ${info_message}"
 		doPinNotifications(error_message, itext)
 		}
 	else	
@@ -712,7 +719,7 @@ def keypadCodeHandler(evt)
 //	Message sensor, sensor open, Arming cancelled
 	if (modeEntered > 0)
 		{
-		log.debug "checking for open contacts"
+		logdebug "checking for open contacts"
 		if (modeEntered == 3)
 			{
 			if (globalAwayContacts)
@@ -745,35 +752,35 @@ def keypadCodeHandler(evt)
 	if (globalKeypadDevices && globalKeypadDevices.size() > 1)
 		{
 		def kpnm=keypad.displayName.replaceAll(" ","_")
-//		log.debug "keypad is $kpnm"
+//		logdebug "keypad is $kpnm"
 		if ("globalKeypadExitDelay${kpnm}")
 			{
 			internalExitDelay=settings."globalKeypadExitDelay${kpnm}"
-//			log.debug "keypad ${kpnm} used, setting exit delay to ${internalExitDelay}"
+//			logdebug "keypad ${kpnm} used, setting exit delay to ${internalExitDelay}"
 			}
 		else
 		if (globalKeypadExitDelay)
 			{
-//			log.debug "Did not find setting for ${kpnm} using global default setting"
+//			logdebug "Did not find setting for ${kpnm} using global default setting"
 			internalExitDelay=globalKeypadExitDelay
 			}
 		}
 	else
 	if (globalKeypadExitDelay)
 		{
-//		log.debug "less than two keypads defined using global default"
+//		logdebug "less than two keypads defined using global default"
 		internalExitDelay=globalKeypadExitDelay
 		}
 		
 	if (modeEntered > 0 && internalExitDelay > 0)
 		{
 		mf=findChildAppByName('SHM Delay ModeFix')
-//		log.debug "${mf.getInstallationState()} ${mf.version()}"
+//		logdebug "${mf.getInstallationState()} ${mf.version()}"
 		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
 			{
 			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
 			daexitdelay = mf."${am}"
-//			log.debug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
+//			logdebug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
 			}
 		else
 		if (modeEntered==3)
@@ -781,7 +788,7 @@ def keypadCodeHandler(evt)
 		}	
 	if (daexitdelay)
 		{
-		log.debug "entered exit delay for $am delay: ${internalExitDelay}"
+		logdebug "entered exit delay for $am delay: ${internalExitDelay}"
 		globalKeypadDevices.each
 			{
 			it.setExitDelay(internalExitDelay)
@@ -829,10 +836,10 @@ def keypadCodeHandler(evt)
 def acknowledgeArmRequest(armMode,keypad)
 //	Post the status of the pin to the shmdelay_oauth db table
 	{
-//	log.debug "acknowledgeArmRequest entererd ${keypad?.getTypeName()} ${keypad.name}"
+//	logdebug "acknowledgeArmRequest entererd ${keypad?.getTypeName()} ${keypad.name}"
 	if (keypad?.getTypeName()!="Internet Keypad")
 		{return false}
-//	keypad.properties.each { k,v ->	log.debug "${k}: ${v}"}
+//	keypad.properties.each { k,v ->	logdebug "${k}: ${v}"}
 	def pinstatus
 	if (armMode <  0 || armMode > 3)
 		pinstatus="Rejected"
@@ -847,13 +854,13 @@ def acknowledgeArmRequest(armMode,keypad)
 			{
 			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
 			uri+='&p='+ pinstatus
-//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+//			logdebug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
 			try {
 				asynchttp_v1.get('ackResponseHandler', [uri: uri])
 				}
 			catch (e)
 				{
-				log.debug "qsse.php Execution failed ${e}"
+				logdebug "qsse.php Execution failed ${e}"
 				}
 			}
 		}	
@@ -881,13 +888,13 @@ def qsse_status_mode(status,mode)
 			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
 			uri+='&s='+ st_status
 			uri+='&m='+ st_mode
-//			log.debug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
+//			logdebug "firing php ${uri} ${it.simkeypad.name} ${it.getAtomic('accessToken')}"
 			try {
 				asynchttp_v1.get('ackResponseHandler', [uri: uri])
 				}
 			catch (e)
 				{
-				log.debug "qsse.php Execution failed ${e}"
+				logdebug "qsse.php Execution failed ${e}"
 				}
 			}
 		}	
@@ -907,7 +914,7 @@ def execRoutine(aMap)
 //											  not ideal prefer alarmtime but its before new alarm time is set
 	def kMode=false							//new keypad light setting, waiting for mode to change is a bit slow
 	def kbMap = [value: armMode, source: "keypad"]		
-	log.debug "execRoutine aMap: ${aMap} kbMap: ${kbMap}"
+	logdebug "execRoutine aMap: ${aMap} kbMap: ${kbMap}"
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
@@ -944,7 +951,7 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		{
 		def it=findChildAppByName('SHM Delay ModeFix')
 		if (it?.getInstallationState()!='COMPLETE')
-			log.debug "keypadModeHandler: Modefix is not fully installed, please adjust data then save"
+			logdebug "keypadModeHandler: Modefix is not fully installed, please adjust data then save"
 		else
 		if (it.offDefault == theMode)
 			{
@@ -983,16 +990,16 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			if (it."stayLight${theMode}")	//2.0.4 Apr 24, 2018 select Icon light from User set Modefix Icon light data 
 				{
 				theMode=it."stayLight${theMode}"
-//				log.debug "Stay mode ${theMode} picked from settings"
+//				logdebug "Stay mode ${theMode} picked from settings"
 				}
 			else	
 				{
-//				log.debug "Stay mode default night mode used"
+//				logdebug "Stay mode default night mode used"
 				theMode='Night'
 				}
 			}
 		}
-	log.debug "keypadModeHandler GlobalFix:${globalFixMode} theMode: $theMode theStatus: $theStatus"
+	logdebug "keypadModeHandler GlobalFix:${globalFixMode} theMode: $theMode theStatus: $theStatus"
 
 	if (globalKeypadControl)			//when we are controlling keypads, set lights
 		{
@@ -1001,16 +1008,16 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			def kMap=atomicState.kMap
 			def kDtim=now()
 			def kMode
-			log.debug "keypadModeHandler KeypadControl entered theMode: ${theMode} AtomicState.kMap: ${kMap}"
+			logdebug "keypadModeHandler KeypadControl entered theMode: ${theMode} AtomicState.kMap: ${kMap}"
 			def setKeypadLights=true
 			if (kMap)
 				{
 				kDtim=kMap.dtim
 				kMode=kMap.mode
-//				log.debug "keypadModeHandler ${evt} ${theMode} ${kMode}"
+//				logdebug "keypadModeHandler ${evt} ${theMode} ${kMode}"
 				if (theMode==kMode)
 					{
-					log.debug "Keypad lights are OK, no messages sent"
+					logdebug "Keypad lights are OK, no messages sent"
 					setKeypadLights=false
 					}
 				}
@@ -1020,13 +1027,13 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 				{
 				kMap = [mode: theMode, dtim: kDtim]			//save mode dtim any keypad armed/disarmed the system for use with
 				atomicState.kMap=kMap						//SHM Delay Child DoorOpens and MotionSensor active functions
-				log.debug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
+				logdebug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
 				keypadLightHandler(evt)
 				}
 			}
 		else
 			{
-			log.debug "keypadModeHandler mode $theMode cannot be used to set the keypad lights"
+			logdebug "keypadModeHandler mode $theMode cannot be used to set the keypad lights"
 			}
 		}	
 		
@@ -1045,13 +1052,13 @@ def keypadLightHandler(evt)						//set the Keypad lights
 	{
 	def	theMode=evt.value						//This should be a valid SHM Mode
 	def simkeypad
-	log.debug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
+	logdebug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
 	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
 	simKeypadDevices.each
 		{
 		if (it?.getInstallationState()!='COMPLETE')
 			{
-			log.debug "${it.keypad} warning device not complete, please save the profile"
+			logdebug "${it.keypad} warning device not complete, please save the profile"
 			}
 		else
 			{
@@ -1067,7 +1074,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 
 def	keypadLighton(evt,theMode,keypad)
 	{
-//	log.debug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+//	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
 	def currkeypadmode=""
 	if (theMode == 'Home')					//Alarm is off
 		{keypad.setDisarmed()}
@@ -1100,10 +1107,10 @@ def	keypadLighton(evt,theMode,keypad)
 			else
 				{
 				currkeypadmode = keypad?.currentValue("armMode")
-				log.debug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
+				logdebug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
 				if (currkeypadmode =="armedStay")
 					{
-//						log.debug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
+//						logdebug "keypadLightHandler model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode} no lights unchanged"
 					}
 				else
 					{keypad.setArmedNight()}
@@ -1125,7 +1132,7 @@ def keypadPanicHandler(evt)
 	def alarmstatus = alarm.value
 	def keypad=evt.getDevice()		//set the keypad name
 	def panic_map=[data:[cycles:5, keypad: keypad.name]]
-	log.debug "the initial panic map ${panic_map} ${keypad.name}" 
+	logdebug "the initial panic map ${panic_map} ${keypad.name}" 
 	if (alarmstatus == "off")
 		{
 //		location.helloHome?.execute(globalAway)	//set alarm on deprecated Mar 20, 2018
@@ -1148,7 +1155,7 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 	def alarmstatus = alarm.value
 	if (alarmstatus == "off")
 		{
-		log.debug "keypadPanicExecute entered $panic_map"
+		logdebug "keypadPanicExecute entered $panic_map"
 		if (panic_map.cycles > 1)
 			{
 			def cycles=panic_map.cycles-1
@@ -1187,7 +1194,7 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 		}
 		
 //	find a delay profile for use with panic
-	log.debug "keypadPanicExecute searching for Delay profile"
+	logdebug "keypadPanicExecute searching for Delay profile"
 
 	def childApps = getChildApps()		//gets all completed child apps
 	def delayApp  = false	
@@ -1195,7 +1202,7 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 		{
 		if (!delayApp && it.getName()=="SHM Delay Child")	
 			{
-			log.debug "keypadPanicExecute found Delay profile"
+			logdebug "keypadPanicExecute found Delay profile"
 			delayApp=true		
 			if (alarmstatus == "off")
 				{
@@ -1239,14 +1246,14 @@ def setSHM(state)
 atempted to use this to trigger panic but it does not fire the subscribed event
 and may create chaos when multiple keypad devices are defined
 def panicContactOpen() {
-	log.debug "Enter panicContactOpen $globalKeypadDevices"
+	logdebug "Enter panicContactOpen $globalKeypadDevices"
     sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true, Device: globalKeypadDevices)
     runIn(3, "panicContactClose")
 }
 
 def panicContactClose()
 	{
-	log.debug "Enter panicContactClose"
+	logdebug "Enter panicContactClose"
 	sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true, Device: globalKeypadDevices)
 	}
 */
@@ -1261,7 +1268,7 @@ def getResponseHandler(response, data)
 	
 def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
 	{
-	log.debug "Entered Verify Version. evt data ${evt.getProperties().toString()}"	
+	logdebug "Entered Verify Version. evt data ${evt.getProperties().toString()}"	
 	def uri='https://www.arnb.org/shmdelay/'
 //	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
 //	uri+='&lon='+location.longitude
@@ -1280,7 +1287,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def mf								//modefix module
 	childApps.find 						//change from each to find to speed up the search
 		{
-//		log.debug "child ${it.getName()}"
+//		logdebug "child ${it.getName()}"
 //		if (vchild>'' && vmodefix>'' && vuser>''&& vkpad>''&& vtalk>'')		removed V2.1.9 Oct 16, 2018
 //			return true														not getting minimum nonkeypad delay time
 //		else
@@ -1327,26 +1334,26 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
     uri+="&u=${vuser}"
     uri+="&k=${vkpad}"
     uri+="&t=${vtalk}"
-    log.debug "${uri}"
+    logdebug "${uri}"
     
 	try {
 		asynchttp_v1.get('versiongetResponseHandler', [uri: uri])
 		}
 	catch (e)
 		{
-		log.debug "Execution failed ${e}"
+		logdebug "Execution failed ${e}"
 		}
 	qsse_status_mode(evt.value,false)
 
 //	Moved exitdelay non-keypad talk message to here from SHM Delay Child, V2.1.9 Oct 15, 2018
 	def vaway=evt?.value
-//	log.debug "Talker setup1 $vchildmindelay $vtalk $vaway" 
+//	logdebug "Talker setup1 $vchildmindelay $vtalk $vaway" 
 	
 //	Nov 19, 2018 V2.2.2 User exit event not running in SHM Delay BuzzerSwitch
 //	if (vtalk=='')			//talker profile not defined, return
 //		return false
 
-	log.debug "vchildmindelay: ${vchildmindelay}"
+	logdebug "vchildmindelay: ${vchildmindelay}"
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
 		return false;
 
@@ -1364,7 +1371,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 			{
 			def am="${evt?.value}Exit${theMode}"
 			daexitdelay = mf."${am}"
-			log.debug "Modefix Version ${vmodefix} the daeexitdelay is ${daexitdelay} amtext: ${am}"
+			logdebug "Modefix Version ${vmodefix} the daeexitdelay is ${daexitdelay} amtext: ${am}"
 			}
 		else
 		if (evt?.value == "away")
@@ -1378,7 +1385,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
 		data: vchildmindelay]
 
-	log.debug "Talker setup2 $vchildmindelay $vtalk" 
+	logdebug "Talker setup2 $vchildmindelay $vtalk" 
 	def alarm = location.currentState("alarmSystemStatus")
 	def lastupdt = alarm?.date.time
 	def alarmSecs = Math.round( lastupdt / 1000)
@@ -1390,7 +1397,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 	def kMap
 	def kduration
 
-	log.debug "Talker fields $kSecs $alarmSecs $vchildmindelay" 
+	logdebug "Talker fields $kSecs $alarmSecs $vchildmindelay" 
 	if (globalKeypadControl)
 		{
 		kMap=atomicState['kMap']	//no data returns null
@@ -1398,11 +1405,11 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 			{
 			kSecs = Math.round(kMap.dtim / 1000)
 			kduration=alarmSecs - kSecs
-//			log.debug "Talker fields $kSecs $alarmSecs $kduration $vchildmindelay" 
+//			logdebug "Talker fields $kSecs $alarmSecs $kduration $vchildmindelay" 
 			if (kduration > 8)
 				{
 				sendLocationEvent(locevent)
-//				log.debug "Away Talker from non keypad triggered"
+//				logdebug "Away Talker from non keypad triggered"
 				}
 			}
 		else	// no atomic map issue message		
@@ -1412,7 +1419,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		}	
 	else	
 		{
-		log.debug "sending location event nonkeypad arming"
+		logdebug "sending location event nonkeypad arming"
 		sendLocationEvent(locevent)
 		}
 
@@ -1424,7 +1431,7 @@ def versiongetResponseHandler(response, data)
     if(response.getStatus() == 200)
     	{
 		def results = response.getJson()
-		log.debug "SHM Delay good response ${results.msg}"
+		logdebug "SHM Delay good response ${results.msg}"
 		if (results.msg != 'OK')
     		sendNotificationEvent("${results.msg}")
         }
@@ -1532,19 +1539,19 @@ def fire_piston(it, modeEntered, keypad, thepiston, textmode)
 // log, send notification, SMS message for pin entry, base code from SHM Delay Child	
 def doPinNotifications(localmsg, it)
 	{
-//	log.debug "doPinNotifications entered ${localmsg} ${it}"
+//	logdebug "doPinNotifications entered ${localmsg} ${it}"
 	if (it?.pinMsgOverride)
 		{
-//		log.debug "Pin msg override being used"
+//		logdebug "Pin msg override being used"
 
 		if (it.UserPinLog)
 			{
-//			log.debug "sent to system log"
+//			logdebug "sent to system log"
 			sendNotificationEvent(localmsg)
 			}
 		if (location.contactBookEnabled && it.UserPinRecipients)
 			{
-//			log.debug "sent to contact folks"
+//			logdebug "sent to contact folks"
 			sendNotificationToContacts(localmsg, it.UserPinRecipients, [event: false])
 			}
 		if (it.UserPinPush)
@@ -1553,8 +1560,8 @@ def doPinNotifications(localmsg, it)
 			}
 		if (it.UserPinPhone)
 			{
-			def phones = it.UserPinPhone.split(";")
-//			log.debug "$phones"
+			def phones = it.UserPinPhone.split("[;#.]")
+//			logdebug "$phones"
 			for (def i = 0; i < phones.size(); i++)
 				{
 				sendSmsMessage(phones[i], localmsg)
@@ -1564,16 +1571,16 @@ def doPinNotifications(localmsg, it)
 	else
 	if (globalPinMsgs)	
 		{
-//		log.debug "global Pin msg settings being used"
+//		logdebug "global Pin msg settings being used"
 
 		if (globalPinLog)
 			{
-//			log.debug "log to notification log"
+//			logdebug "log to notification log"
 			sendNotificationEvent(localmsg)
 			}
 		if (location.contactBookEnabled && globalPinRecipients)
 			{
-//			log.debug "global contacts being used"
+//			logdebug "global contacts being used"
 			sendNotificationToContacts(localmsg, globalPinRecipients, [event: false])
 			}
 		if (globalPinPush)
@@ -1582,8 +1589,8 @@ def doPinNotifications(localmsg, it)
 			}
 		if (globalPinPhone)
 			{
-			def phones = globalPinPhone.split(";")
-	//		log.debug "$phones"
+			def phones = globalPinPhone.split("[;#.]")
+	//		logdebug "$phones"
 			for (def i = 0; i < phones.size(); i++)
 				{
 				sendSmsMessage(phones[i], localmsg)
@@ -1595,14 +1602,14 @@ def doPinNotifications(localmsg, it)
 		{}
 	else
 		{
-//		log.debug "default pin msg logic used, log to notifications"
+//		logdebug "default pin msg logic used, log to notifications"
 		sendNotificationEvent(localmsg)		//log to notification when no settings available
 		}
 	}
 	
 def doBadPinNotifications(localmsg, it)
 	{
-//	log.debug "doBadPinNotifications entered ${localmsg} ${it}"
+//	logdebug "doBadPinNotifications entered ${localmsg} ${it}"
 	if (globalBadPinLog)
 		{
 		sendNotificationEvent(localmsg)
@@ -1617,7 +1624,7 @@ def doBadPinNotifications(localmsg, it)
 		}
 	if (globalBadPinPhone)
 		{
-		def phones = globalBadPinPhone.split(";")
+		def phones = globalBadPinPhone.split("[;#.]")
 		for (def i = 0; i < phones.size(); i++)
 			{
 			sendSmsMessage(phones[i], localmsg)
@@ -1628,10 +1635,10 @@ def doBadPinNotifications(localmsg, it)
 def checkOpenContacts (contactList, notifyOptions, keypad)
 	{
 	def contactmsg=''
-//	log.debug "contact list entered $contactList $notifyOptions $keypad"
+//	logdebug "contact list entered $contactList $notifyOptions $keypad"
 	contactList.each
 		{
-//		log.debug "${it} ${it.currentContact}"
+//		logdebug "${it} ${it.currentContact}"
 		if (it.currentContact=="open")
 			{
 			if (contactmsg == '')
@@ -1648,7 +1655,7 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 		{
 		notifyOptions.each
 			{
-//			log.debug "$it"
+//			logdebug "$it"
 			if (it=='Notification log')
 				{
 				sendNotificationEvent(contactmsg)
@@ -1659,7 +1666,7 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 			else
 			if (it=='SMS' && globalPinPhone)
 				{
-				def phones = globalPinPhone.split(";")
+				def phones = globalPinPhone.split("[;#.]")
 				for (def i = 0; i < phones.size(); i++)
 					{
 					sendSmsMessage(phones[i], contactmsg)
@@ -1677,4 +1684,11 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 		return false
 		}
 	return true	
-	}	
+	}
+
+def logdebug(txt)
+	{
+   	if (logDebugs)
+   		log.debug ("${txt}")
+    }
+	
