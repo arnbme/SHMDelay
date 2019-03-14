@@ -20,7 +20,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	Mar 03, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows?
+ *	Mar 14, 2019 v2.2.8  Change: Period not saved in Apple IOS, remove it as a phone number delimter
+ *	Mar 12, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows in android, nor is saved in IOS?
  *	Mar 03, 2019 v2.2.8  add flag to turn deub messages on, default is off
  *	Mar 03, 2019 v2.2.8  log debugging for exit delay issue
  *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
@@ -245,7 +246,7 @@ def globalsPage()
 			input (name: "global911", type:"enum", required: false, options: ["911","999","112"],
 				title: "Add 3 digit emergency call number on this app's intrusion message?")
 			input "globalPolice", "phone", required: false, 
-				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a semicolon(;), pound sign(#) or period(.)"
+				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a pound sign(#), or semicolon(;)"
 			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
 				title: "I have the same motion sensor defined in multiple delay profiles. Stop false motion sensor triggered alarms by cross checking for sensor in other delay profiles.\nDefault Off/False"
 			if (globalKeypadControl)
@@ -325,7 +326,7 @@ def globalsPage()
 							title: "Send Pin Push Notification?"
 						}
 					input "globalPinPhone", "phone", required: false, 
-						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;), pound sign(#) or period(.)"
+						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
 					}
 				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
 					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
@@ -345,7 +346,7 @@ def globalsPage()
 							title: "Send Bad Pin Push Notification?"
 						}
 					input "globalBadPinPhone", "phone", required: false, 
-						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;), pound sign(#) or period(.)"
+						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
 					}
 
 				input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
@@ -1560,7 +1561,7 @@ def doPinNotifications(localmsg, it)
 			}
 		if (it.UserPinPhone)
 			{
-			def phones = it.UserPinPhone.split("[;#.]")
+			def phones = it.UserPinPhone.split("[;#]")
 //			logdebug "$phones"
 			for (def i = 0; i < phones.size(); i++)
 				{
@@ -1589,7 +1590,7 @@ def doPinNotifications(localmsg, it)
 			}
 		if (globalPinPhone)
 			{
-			def phones = globalPinPhone.split("[;#.]")
+			def phones = globalPinPhone.split("[;#]")
 	//		logdebug "$phones"
 			for (def i = 0; i < phones.size(); i++)
 				{
@@ -1624,7 +1625,7 @@ def doBadPinNotifications(localmsg, it)
 		}
 	if (globalBadPinPhone)
 		{
-		def phones = globalBadPinPhone.split("[;#.]")
+		def phones = globalBadPinPhone.split("[;#]")
 		for (def i = 0; i < phones.size(); i++)
 			{
 			sendSmsMessage(phones[i], localmsg)
@@ -1666,7 +1667,7 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 			else
 			if (it=='SMS' && globalPinPhone)
 				{
-				def phones = globalPinPhone.split("[;#.]")
+				def phones = globalPinPhone.split("[;#]")
 				for (def i = 0; i < phones.size(); i++)
 					{
 					sendSmsMessage(phones[i], contactmsg)

@@ -22,7 +22,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *	Mar 12, 2019 v2.1.4  Added: phone number delimiters # and . the semi colon no longer shows?
+ *	Mar 14, 2019 v2.1.4  Change: Period not saved in Apple IOS, remove it as a phone number delimter
+ *	Mar 12, 2019 v2.1.4  Added: phone number delimiters #, and Period (.) the semi colon no longer shows in android, nor is saved in IOS?
  *	Mar 05, 2019 V2.1.4  Added: Allow user to limit alarm state when profile is active
  *	Mar 05, 2019 V2.1.4  Added: Boolean flag for debug message logging, default false
  *	Jan 06, 2019 V2.1.3  Added: Support for 3400_G Centralite V3
@@ -202,7 +203,7 @@ def pageOne()
 		section
 			{	
 			input (name: "stateLimit", type:"enum", required: false, options: ["Away","Stay"],
-				title: "(Optional!) When system is armed, react to the real contact sensor opening only when armed: away or stay. Default: Always reacts when system armed")
+				title: "(Optional!) When system is armed, react to the real contact sensor opening only when armed: Away or Stay. Default: Reacts with Away and Stay")
 			}
 		section
 			{
@@ -513,7 +514,7 @@ def pageThree(error_data)
 				title: "Send Push Notification?"
 				}
 			input "phone", "phone", required: false, 
-				title: "Send a text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;), pound sign(#) or period(.)"
+				title: "Send a text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
 			}
 
 		}
@@ -721,7 +722,7 @@ def doNotifications(message)
 		}
 	if (phone)
 		{
-		def phones = phone.split("[;#.]")
+		def phones = phone.split("[;#]")
 //		logdebug "$phones"
 		for (def i = 0; i < phones.size(); i++)
 			{
