@@ -11,12 +11,12 @@ metadata {
     }
 
 	preferences {
-		input(name:"serverIP",type:"string",title:"Server IPX Address",defaultValue:"",required:true)
-		input(name:"serverPort",type:"string",title:"Server Port",defaultValue:"2323",required:true)
-		input(name:"serverPassword",type:"string",title:"Server Password",defaultValue:"",required:true)
-		input(name:"toneFile",type:"string",title:"Tone Audio File URL",defaultValue:"",required:false)
-		input(name:"appPackage",type:"string",title:"Application to Launch",defaultValue:"",required:false)
-		input(name:"loggingLevel",type:"enum",title:"Logging Level",description:"Set the level of logging.",options:["none","debug","trace","info","warn","error"],defaultValue:"debug",required:true)
+		input(name:"serverIP",type:"string",title:"Server IP Address",required:true,displayDuringSetup: true)
+		input(name:"serverPort",type:"string",title:"Server Port",defaultValue:2323,required:true,displayDuringSetup: true)
+		input(name:"serverPassword",type:"string",title:"Server Password",required:true,displayDuringSetup: true)
+		input(name:"toneFile",type:"string",title:"Tone Audio File URL",required:false,displayDuringSetup: true)
+		input(name:"appPackage",type:"string",title:"Application to Launch",required:false,displayDuringSetup: true)
+		input(name:"loggingLevel",type:"enum",title:"Logging Level",description:"Set the level of logging.",options:["none","debug","trace","info","warn","error"],defaultValue:"debug",required:true,displayDuringSetup: true)
     }
     tiles
     	{
@@ -49,13 +49,13 @@ def initialize() {
 }
 
 // *** [ Device Methods ] *****************************************************
-def chime() {}
 def doorbell() {}
 def beep(text="Fully Kiosk Device Handler") {
 	def logprefix = "[beep] "
     logger(logprefix,"trace")
 	sendCommandPost("cmd=playSound&url=${toneFile}")
 }
+def chime() {beep()}
 def launchAppPackage() {
 	def logprefix = "[launchAppPackage] "
     logger(logprefix,"trace")
