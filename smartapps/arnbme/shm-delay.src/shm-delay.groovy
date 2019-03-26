@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Mar 26, 2019 v2.2.8  Corrected keypad lights not properly see around statement 1034/5  fakeEvt = [value: theMode]
  *	Mar 14, 2019 v2.2.8  Change: Period not saved in Apple IOS, remove it as a phone number delimter
  *	Mar 12, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows in android, nor is saved in IOS?
  *	Mar 03, 2019 v2.2.8  add flag to turn deub messages on, default is off
@@ -1029,7 +1030,9 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 				kMap = [mode: theMode, dtim: kDtim]			//save mode dtim any keypad armed/disarmed the system for use with
 				atomicState.kMap=kMap						//SHM Delay Child DoorOpens and MotionSensor active functions
 				logdebug "keypadModeHandler issuing keypadlightHandler ${evt} ${evt.value}"
-				keypadLightHandler(evt)
+//				keypadLightHandler(evt)
+				def fakeEvt = [value: theMode]					
+				keypadLightHandler(fakeEvt)
 				}
 			}
 		else
