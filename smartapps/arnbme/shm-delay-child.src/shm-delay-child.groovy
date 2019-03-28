@@ -22,7 +22,10 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
- *
+ *	Mar 14, 2019 v2.1.4  Change: Period not saved in Apple IOS, remove it as a phone number delimter
+ *	Mar 12, 2019 v2.1.4  Added: phone number delimiters #, and Period (.) the semi colon no longer shows in android, nor is saved in IOS?
+ *	Mar 05, 2019 V2.1.4  Added: Allow user to limit alarm state when profile is active
+ *	Mar 05, 2019 V2.1.4  Added: Boolean flag for debug message logging, default false
  *	Jan 06, 2019 V2.1.3  Added: Support for 3400_G Centralite V3
  *	Nov 30, 2018 v2.1.2	 Add support for Iris V3 Dont check for 3405-L use 3400 again
  *	Oct 17, 2018 v2.1.1	 Use user entry delay settings in ModeFix to control it there is an entry delay.
@@ -149,7 +152,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.3";
+	return "2.1.4";
 	}
 	
 def pageZeroVerify()
@@ -187,6 +190,8 @@ def pageOne()
 				paragraph "${state.error_data}"
 				state.remove("error_data")
 				}
+			input "logDebugs", "bool", required: false, defaultValue:false,
+				title: "Log debugging messages? Normally off/false"
 			input "thecontact", "capability.contactSensor", required: true, 
 				title: "Real Contact Sensor (Remove from SmartHome Monitoring)", submitOnChange: true
 			}
@@ -194,6 +199,11 @@ def pageOne()
 			{	
 			input "thesimcontact", "capability.contactSensor", required: true,
 				title: "Simulated Contact Sensor (Must Monitor in SmartHome)"
+			}
+		section
+			{	
+			input (name: "stateLimit", type:"enum", required: false, options: ["Away","Stay"],
+				title: "(Optional!) When system is armed, react to the real contact sensor opening only when armed: Away or Stay. Default: Reacts with Away and Stay")
 			}
 		section
 			{
@@ -252,17 +262,17 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 	else	
 		{
 		ok_names = ok_names + ")(.*)"
-//		log.debug "contact name field not provided"
+//		logdebug "contact name field not provided"
 		}
 	if (thecontact)
 		{
-/*		log.debug "editing contact name ${thecontact.typeName}"
+/*		logdebug "editing contact name ${thecontact.typeName}"
 		def txt = "xfinity 3400 Keypad xyz"		//test code for failing match group test 
 		def m
 		if ((m = txt =~ /(.*)(?i)(keypad)(.*)/)) {
-		  log.debug "m $m"	
+		  logdebug "m $m"	
 		  def match = m.group(1)			//fails with error message here
-		  log.debug "MATCH=$match"}
+		  logdebug "MATCH=$match"}
 */		if (thecontact.typeName.matches("(.*)(?i)(keypad)(.*)"))
 			{
 			error_data+="Device: ${thecontact.displayName} is not a valid real contact sensor! Please select a differant device or tap 'Remove'\n\n"
@@ -338,18 +348,18 @@ def iscontactUnique()
 	{
 	def unique = true
 	def children = parent?.getChildApps()
-//  	log.debug "there are ${children.size()} apps"
-//	log.debug "this contact id: ${thecontact.getId()}"
-//	log.debug "app install: ${app.getInstallationState()}"
-//	log.debug "app id: ${app?.getId()}"
+//  	logdebug "there are ${children.size()} apps"
+//	logdebug "this contact id: ${thecontact.getId()}"
+//	logdebug "app install: ${app.getInstallationState()}"
+//	logdebug "app id: ${app?.getId()}"
 //	def myState = app.currentState()
-//	log.debug "current app id: ${myState}"	
-//	log.debug current app Id "${myState.getId()}"
+//	logdebug "current app id: ${myState}"	
+//	logdebug current app Id "${myState.getId()}"
 	children.each
 		{ child ->
 
-//		log.debug "child app id: ${child.getId()} ${child.getLabel()}"	
-//		log.debug "child contact Id: ${child.thecontact.getId()}"	
+//		logdebug "child app id: ${child.getId()} ${child.getLabel()}"	
+//		logdebug "child contact Id: ${child.thecontact.getId()}"	
 		def childLabel = child.getLabel()
 		if (child.getName()!="SHM Delay Child")	
 			{}
@@ -444,7 +454,7 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 		{
 		thekeypad.each		//fails when not defined as multiple contacts
 			{
-//			log.debug "Current Arm Mode: ${it.currentarmMode} ${it.getManufacturerName()}"
+//			logdebug "Current Arm Mode: ${it.currentarmMode} ${it.getManufacturerName()}"
 			if (!it.hasCommand("setEntryDelay"))
 				{
 				error_data="Keypad: ${it.displayName} does not support entry tones. Please remove the device from keypads.\n\n"
@@ -504,8 +514,9 @@ def pageThree(error_data)
 				title: "Send Push Notification?"
 				}
 			input "phone", "phone", required: false, 
-				title: "Send a text message to this number. For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+				title: "Send a text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
 			}
+
 		}
 	}	
 
@@ -531,12 +542,12 @@ def pageThreeVerify() 				//edit page three info
 
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	log.info "Installed with settings: ${settings}"
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	log.info "Updated with settings: ${settings}"
 	unsubscribe()
 	initialize()
 }
@@ -570,25 +581,25 @@ def childalarmStatusHandler(evt)
 		return false
 	def theAlarm = evt.value
 	def delaydata=evt?.data
-//	log.debug "delaydata ${delaydata}"
-//	log.debug "changed ${evt.isStateChange()}"
-//	log.debug "alarm state changed stuff ${evt.value} ${evt?.description} ${evt?.name} ${evt.date.time} ${evt?.data} ${delaydata} "
+//	logdebug "delaydata ${delaydata}"
+//	logdebug "changed ${evt.isStateChange()}"
+//	logdebug "alarm state changed stuff ${evt.value} ${evt?.description} ${evt?.name} ${evt.date.time} ${evt?.data} ${delaydata} "
 	if (delaydata=="shmtruedelay_rearm")	//True entry delay, rearming is ignored here
 		{
-//		log.debug "childalarmStatusHandler ignoring the rearm request"
+//		logdebug "childalarmStatusHandler ignoring the rearm request"
 		return false
 		}
 	else
 	if (delaydata=="shmtruedelay_away")		//Process away mode with Entry true delay
 		{
-//		log.debug "childalarmStatusHandler prepare to rearm away"
+//		logdebug "childalarmStatusHandler prepare to rearm away"
 		prepare_to_soundalarm("away")
 		return false
 		}
 	else
 	if (delaydata=="shmtruedelay_stay")		//Process away mode with Entry true delay
 		{
-//		log.debug "childalarmStatusHandler prepare to rearm stay"
+//		logdebug "childalarmStatusHandler prepare to rearm stay"
 		prepare_to_soundalarm("stay")
 		return false
 		}	
@@ -611,11 +622,11 @@ def childalarmStatusHandler(evt)
 			{
 			kMap=parent?.atomicState.kMap
 			kSecs = Math.round(kMap.dtim / 1000)
-//			log.debug "Talker fields $kSecs $alarmSecs $theexitdelay" 
+//			logdebug "Talker fields $kSecs $alarmSecs $theexitdelay" 
 			if (alarmSecs - kSecs > theexitdelay+4)		//allow 4 second delay for ST delays due to cloud and internet
 				{
 				sendLocationEvent(locevent)
-//				log.debug "Away Talker from non keypad triggered"
+//				logdebug "Away Talker from non keypad triggered"
 				}
 			}
 		else	
@@ -626,23 +637,23 @@ def childalarmStatusHandler(evt)
 	
 */
 	def theMode = location.currentMode	
-	log.debug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
+	logdebug("childalarmStatusHandler1 Alarm: ${theAlarm} Mode: ${theMode} FixMode: ${parent?.globalFixMode}")
 	
 //	Optionally fix the mode to match the Alarm State. When user sets alarm from dashboard
 //	the Mode is not set, resulting in Smarthings having Schizophrenia or cognitive dissonance. 
 	if (parent?.globalFixMode)
 		{
 		def modefix=parent.findChildAppByName("SHM Delay ModeFix")
-		log.debug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
+		logdebug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
 		if (modefix?.getInstallationState() == 'COMPLETE') 
 			{
-//			log.debug "going to modefix alarmstatushandler mode: ${theMode}"
+//			logdebug "going to modefix alarmstatushandler mode: ${theMode}"
 //			reset the map adding childid telling modefix not to log this to notifications
 			def evtMap = [value: evt.value, source: evt.source, childid: "childid"]
-//			log.debug "${evtMap}"
+//			logdebug "${evtMap}"
 			theMode=modefix.alarmStatusHandler(evtMap)
 //			theMode=modefix.alarmStatusHandler(evt)		//deprecated Mar 11, 2018
-			log.debug "returned from modefix alarmstatushandler mode: ${theMode}"
+			logdebug "returned from modefix alarmstatushandler mode: ${theMode}"
 			if (!theMode)
 				{theMode = location.currentMode}	
 			}
@@ -672,7 +683,7 @@ def childalarmStatusHandler(evt)
 					{
 					if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
 						{
-						log.debug "matched1, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
+						logdebug "matched1, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
 						it.setArmedNight([delay: 2000])
 						}
 					}
@@ -685,7 +696,7 @@ def childalarmStatusHandler(evt)
 				{
 				if (it.getModelName()=="3400" && it.getManufacturerName()=="CentraLite")
 					{
-					log.debug "matched2, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
+					logdebug "matched2, set armrednight issued: ${it.getModelName()} ${it.getManufacturerName()}"
 					thekeypad.setArmedNight([delay: 2000])
 					}
 				}
@@ -711,8 +722,8 @@ def doNotifications(message)
 		}
 	if (phone)
 		{
-		def phones = phone.split(";")
-//		log.debug "$phones"
+		def phones = phone.split("[;#]")
+//		logdebug "$phones"
 		for (def i = 0; i < phones.size(); i++)
 			{
 			sendSmsMessage(phones[i], localmsg)
@@ -728,7 +739,7 @@ def motionActiveHandler(evt)
 		return false
 //	A motion sensor shows motion
 	def triggerDevice = evt.getDevice()
-	log.debug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
+	logdebug "motionActiveHandler called: $evt by device : ${triggerDevice.displayName}"
 
 //	if not in Away mode, ignore all motion sensor activity
 //	When alarm was set less than exit delay time, ignore the motion sensor activity
@@ -761,13 +772,13 @@ def motionActiveHandler(evt)
 	if (parent.globalKeypadControl && theexitdelay > 0 && 
 		alarmSecs - kSecs > 4 && currSecs - alarmSecs < theexitdelay)
 		{
-//		log.debug "motionActiveHandler return1"
+//		logdebug "motionActiveHandler return1"
 		return false
 		}
 	else
 	if (!parent?.globalKeypadControl && theexitdelay > 0 && currSecs - alarmSecs < theexitdelay)
 		{
-//		log.debug "motionActiveHandler return2"
+//		logdebug "motionActiveHandler return2"
 		return false
 		}
 	else
@@ -777,17 +788,17 @@ def motionActiveHandler(evt)
 		def events=thecontact.events()
 		def esize=events.size()
 		def i = 0
-//		log.debug "motionActiveHandler scanning events ${esize}"
+//		logdebug "motionActiveHandler scanning events ${esize}"
 		def open_seconds=999999
 		for(i; i < esize; i++)
 			{
 			if (events[i].value == "open"){
 				open_seconds = Math.round((now() - events[i].date.getTime())/1000)
-				log.debug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
+				logdebug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
 				break;
 				}
 			}	
-//		log.debug "motionActiveHandler scan done ${esize} ${open_seconds}"
+//		logdebug "motionActiveHandler scan done ${esize} ${open_seconds}"
 		if (open_seconds>theentrydelay)
 			{
 					
@@ -800,15 +811,15 @@ def motionActiveHandler(evt)
 				}
 			else
 				{
-				log.debug "*****testing duplicate sensor flag*******"
+				logdebug "*****testing duplicate sensor flag*******"
 				if (parent?.globalDuplicateMotionSensors)
 					{
-					log.debug "*****Calling checkOtherDelayProfile*******"
+					logdebug "*****Calling checkOtherDelayProfile*******"
 					if (checkOtherDelayProfiles(thecontact, triggerDevice, theentrydelay))
 						{return false}
 					}
 				}
-			log.debug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
+			logdebug "Away Mode: Intrusion caused by followed motion sensor at ${aMap.data.lastupdt}"
 			soundalarm(aMap.data)
 			}
 		}	
@@ -820,16 +831,17 @@ def doorOpensHandler(evt)
 	if (parent.globalDisable)
 		return false
 /*	def latestDeviceState = thecontact.latestState("closed")  deprecated Jan 08, 2018 data was not used
-    	log.debug "latest closed state ${latestDeviceState}"
+    	logdebug "latest closed state ${latestDeviceState}"
     	def events=thecontact.events()
 	for(def i = 0; i < events.size(); i++) {
 		def startTime = events[i].date.getTime()
-		log.debug("value: ${events[i].value} startTime: ${startTime}")
+		logdebug("value: ${events[i].value} startTime: ${startTime}")
 		}
 */	
 	def alarm = location.currentState("alarmSystemStatus")
 	def alarmstatus = alarm?.value
-//	log.debug "doorOpensHandler ${alarm} ${alarmstatus}"
+	logdebug "doorOpensHandler entered alarmstatus: $alarmstatus stateLimit: $stateLimit" 
+//	logdebug "doorOpensHandler ${alarm} ${alarmstatus}"
 	if (alarmstatus == "off")
 		{
 		thebeepers?.each
@@ -837,7 +849,7 @@ def doorOpensHandler(evt)
 			if (it?.currentValue("armMode")=="exitDelay")		//bypass keypads beeping exit delay tones
 				{
 //				def beepDevice = it?.getDevice()
-//				log.debug "skipped device on exit delay ${beepDevice.displayName} armMode: ${it?.currentValue('armMode')}"
+//				logdebug "skipped device on exit delay ${beepDevice.displayName} armMode: ${it?.currentValue('armMode')}"
 				}
 			else
 				{it.beep()}
@@ -847,14 +859,14 @@ def doorOpensHandler(evt)
 	def lastupdt = alarm?.date.time
 	
 	def theMode = location.currentMode
-	log.debug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt Mode: $theMode Truenight:${parent.globalTrueNight} "
+	logdebug "doorOpensHandler called: $evt.value $alarmstatus $lastupdt Mode: $theMode Truenight:${parent.globalTrueNight} "
 
 //	get current time and alarm time in seconds
 	def currT = now()
 	def currSecs = Math.round(currT / 1000)	//round back to seconds
-//	log.debug "${currSecs}"
+//	logdebug "${currSecs}"
 	def alarmSecs = Math.round( lastupdt / 1000)
-//	log.debug "${alarmSecs}"
+//	logdebug "${alarmSecs}"
 
 //	alarmstaus values: off, stay, away
 //	check first if this is an exit delay in away mode, if yes monitor the door, else its an alarm
@@ -875,7 +887,7 @@ def doorOpensHandler(evt)
 			if (['3400','3400-G'].contains(keypad?.getModelName()) && currkeypadmode=="")
 				{
 				currkeypadmode = it?.currentValue("armMode")
-				log.debug "keypad set currkeypadmode to $currkeypadmode"
+//				logdebug "keypad set currkeypadmode to $currkeypadmode"
 				}
 			}	
 		}	
@@ -888,7 +900,7 @@ def doorOpensHandler(evt)
 			currkeypadmode='armedNight'
 		else	
 			currkeypadmode='armedStay'
-		log.debug "globalTrueNight set currkeypadmode to $currkeypadmode"
+//		logdebug "globalTrueNight set currkeypadmode to $currkeypadmode"
 		}
 //	if (alarmstatus == "away" && parent.globalKeypadControl && kMap.mode=="Away" && theexitdelay > 0 && 
 	if (alarmstatus == "away" && parent.globalKeypadControl && theexitdelay > 0 && 
@@ -901,6 +913,12 @@ def doorOpensHandler(evt)
 		{
 		new_monitor(true)
 		}
+	else
+	if ((alarmstatus == "stay" && stateLimit && stateLimit == "Away") || 
+		(alarmstatus == "away" && stateLimit && stateLimit == "Stay"))
+		{
+		logdebug "doorOpensHandler Alarm ignored alarmstatus: $alarmstatus stateLimit: $stateLimit" 
+		}
 	else	
 //	if (theentrydelay < 1 || (alarmstatus == "stay" && parent?.globalTrueNight && theMode=="Night")) Mar 23, 2018
 //	if (theentrydelay < 1 || (alarmstatus == "stay" && currkeypadmode!="armedStay")) Oct 17, 2018
@@ -908,21 +926,22 @@ def doorOpensHandler(evt)
 		{
 		def aMap = [data: [lastupdt: lastupdt, shmtruedelay: false]]
 		if (theentrydelay<1)
-			{log.debug "EntryDelay is ${settings.theentrydelay}, instant on for alarm ${aMap.data.lastupdt}"}
+			{logdebug "EntryDelay is ${settings.theentrydelay}, instant on for alarm ${aMap.data.lastupdt}"}
 		else
-			{log.debug "Night Mode instant on for alarm ${aMap.data.lastupdt}"}
+			{logdebug "Night Mode instant on for alarm ${aMap.data.lastupdt}"}
 		soundalarm(aMap.data)
 		}
 	else
-	if (alarmstatus == "stay" || alarmstatus == "away")
+	if (alarmstatus == "stay" || alarmstatus == "away") 
 		{
+		logdebug "doorOpensHandler Alarm honored alarmstatus: $alarmstatus stateLimit: $stateLimit" 
 		def mf=parent?.findChildAppByName('SHM Delay ModeFix')
-//		log.debug "${mf.getInstallationState()} ${mf.version()}"
+//		logdebug "${mf.getInstallationState()} ${mf.version()}"
 		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
 			{
 			def am="${alarmstatus}Entry${theMode}"
 			daentrydelay = mf."${am}"
-			log.debug "Version ${mf.version()} the daentrydelay is ${daentrydelay}"
+			logdebug "Version ${mf.version()} the daentrydelay is ${daentrydelay}"
 			}
 		else
 		if (alarmstatus == "stay" && currkeypadmode!="armedStay")
@@ -942,7 +961,7 @@ def doorOpensHandler(evt)
 			}
 		if (parent?.globalTrueEntryDelay)
 			{
-			log.debug "True Entry Mode enabled issuing event SmartHome off"
+			logdebug "True Entry Mode enabled issuing event SmartHome off"
 //			note data object created here is a string not a map, for reasons unknown map field fails						
 			def event = [
 				name:'alarmSystemStatus',
@@ -950,7 +969,7 @@ def doorOpensHandler(evt)
 				displayed: true,
 				description: "SHM Delay True Entry Delay",
 				data: "shmtruedelay_"+alarmstatus]
-			log.debug "event ${event}"	
+			logdebug "event ${event}"	
 			sendLocationEvent(event)	//change alarmstate to stay	
 			}
 		else
@@ -964,7 +983,7 @@ def prepare_to_soundalarm(shmtruedelay)
 	def alarmstatus = alarm?.value
 	def lastupdt = alarm?.date.time
 
-	log.debug "Prepare to sound alarm entered $shmtruedelay"
+	logdebug "Prepare to sound alarm entered $shmtruedelay"
 //	When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
 	if (parent?.globalKeypadControl)
 		{
@@ -1018,13 +1037,13 @@ def prepare_to_soundalarm(shmtruedelay)
     		displayed: true, descriptionText: "Issue entry delay talk event", linkText: "Issue entry delay talk event",
     		data: theentrydelay]
     sendLocationEvent(locevent)
-//	log.debug "sent location event for shmdelaytalk"
+//	logdebug "sent location event for shmdelaytalk"
 	}
 
 //	wait for door to open in themotiondelay seconds 
 def waitfordooropen(evt)
 	{
-	log.debug "waitfordooropen entered ${evt}"
+	logdebug "waitfordooropen entered ${evt}"
 	soundalarm (evt.data)
 	}
 
@@ -1034,7 +1053,7 @@ def soundalarm(data)
 	def alarm2 = location.currentState("alarmSystemStatus")
 	def alarmstatus2 = alarm2.value
 	def lastupdt = alarm2.date.time
-	log.debug "soundalarm called: $alarmstatus2 $data ${data.lastupdt} $lastupdt"
+	logdebug "soundalarm called: $alarmstatus2 $data ${data.lastupdt} $lastupdt"
 	if (alarmstatus2=="off" && !data.shmtruedelay) 
 		{}
 	else
@@ -1042,7 +1061,7 @@ def soundalarm(data)
 		{
 		if (data.shmtruedelay)
 			{
-			log.debug "soundalarm rearming in mode ${data.shmtruedelay}"
+			logdebug "soundalarm rearming in mode ${data.shmtruedelay}"
 			def event = [
 				name:'alarmSystemStatus',
 				value: data.shmtruedelay,
@@ -1051,21 +1070,21 @@ def soundalarm(data)
 				data: "shmtruedelay_rearm"]
 			sendLocationEvent(event)	//change alarmstate to stay	
 			thesimcontact.close([delay: 2000])
-			log.debug "true entry delay alarm rearmed"	
+			logdebug "true entry delay alarm rearmed"	
 			thesimcontact.open([delay:2000])
 			parent.qsse_status_mode(false,"**Intrusion**")
 			}
 		else	
 			{
 			thesimcontact.close()		//must use a live simulated sensor or this fails in Simulator
-			log.debug "alarm triggered"	
+			logdebug "alarm triggered"	
 			thesimcontact.open()
 			parent.qsse_status_mode(false,"**Intrusion**")
 			}
 //		Aug 19, 2017 issue optional intrusion notificaion messages
 		if (parent?.globalIntrusionMsg)
 			{
-//			log.debug "sending global intrusion message "
+//			logdebug "sending global intrusion message "
 //			get names of open contacts for message
 			def door_names = thecontact.displayName	//name of each switch in a list(array)
 			def message = "${door_names} intrusion"
@@ -1109,7 +1128,7 @@ def soundalarm(data)
 //	changed all executions to include true or false on new_monitor call
 def new_monitor(delay)
 	{
-	log.debug "new_monitor called: cycles: $maxcycles"
+	logdebug "new_monitor called: cycles: $maxcycles"
 	unschedule(checkStatus)
 	state.cycles = maxcycles
 	if (!delay)
@@ -1124,7 +1143,7 @@ def new_monitor(delay)
 
 def killit()
 	{
-	log.debug "killit called"
+	logdebug "killit called"
 	state.remove('cycles')
 	unschedule(checkStatus)	//kill any pending cycles
 	}
@@ -1132,13 +1151,13 @@ def killit()
 def countopenContacts() {
 //	Aug 19, 2017 returning 0 on open door. comment out multipe support for now
 	def curr_contacts = thecontact.currentContact	//status of each contact in a list(array)
-	log.debug "countopenContacts entered ${curr_contacts}"
+	logdebug "countopenContacts entered ${curr_contacts}"
 //	count open contacts	
 /*	def open_contacts = curr_contacts.findAll 
 		{
 		contactVal -> contactVal == "open" ? true : false
 		}
-	log.debug "countopenContacts exit with count: ${open_contacts.size()}"
+	logdebug "countopenContacts exit with count: ${open_contacts.size()}"
 	return (open_contacts.size())
 */
 	if (curr_contacts == "open")
@@ -1151,7 +1170,7 @@ def contactClosedHandler(evt)
 	{
 	if (parent.globalDisable)
 		return false
-	log.debug "contactClosedHandler called: $evt.value"
+	logdebug "contactClosedHandler called: $evt.value"
 	if (countopenContacts()==0)
 		killit()
 	}
@@ -1162,7 +1181,7 @@ def checkStatus()
 	def alarmstate = location.currentState("alarmSystemStatus")
 	def alarmvalue = alarmstate.value
 	def door_count=countopenContacts()		//get open contact count
-	log.debug "In checkStatus: Alarm: $alarmvalue Doors Open: ${door_count} MessageCycles remaining: $state.cycles"
+	logdebug "In checkStatus: Alarm: $alarmvalue Doors Open: ${door_count} MessageCycles remaining: $state.cycles"
 
 
 //	Check if armed and one or more contacts are open
@@ -1205,7 +1224,7 @@ def checkStatus()
 		doNotifications(message)
 		if (themonitordelay>0 && state.cycles>0)
 			{
-			log.debug ("issued next checkStatus cycle $themonitordelay ${60*themonitordelay} seconds")
+			logdebug ("issued next checkStatus cycle $themonitordelay ${60*themonitordelay} seconds")
 			runOnce(runTime,checkStatus)
 			}
 		}
@@ -1228,45 +1247,45 @@ Moved from parent to child. Makes debugging easier since debug messages are cont
 def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 	{
 	def	ignoreSensor=false
-	log.debug "checkOtherDelayProfiles entered Contact: ${baseContact}, Motion: ${baseMotion}, Delay: ${baseEntryDelay}"
+	logdebug "checkOtherDelayProfiles entered Contact: ${baseContact}, Motion: ${baseMotion}, Delay: ${baseEntryDelay}"
 	def profiles=parent.findAllChildAppsByName('SHM Delay Child')
 //	Beginning of ***FIND*** loop
 	profiles.find
 		{
 		if (it?.getInstallationState()!='COMPLETE')
 			{
-			log.debug "Incomplete profile skipped: ${it?.thecontact.displayName}"
+			logdebug "Incomplete profile skipped: ${it?.thecontact.displayName}"
 			return false	//this continues the ***find*** loop, does not end function
 			}			
 
-		log.debug "looping on profile: ${it?.thecontact.displayName} Comparing: ${baseContact.displayName}"
+		logdebug "looping on profile: ${it?.thecontact.displayName} Comparing: ${baseContact.displayName}"
 		if (it?.thecontact.displayName==baseContact.displayName)			//is this the active profile
 			{
-			log.debug "Active Profile skipped" 
+			logdebug "Active Profile skipped" 
 			return false	//this continues the ***find*** loop, does not end function
 			}			
 
 		if (parent.globalMultipleMotion)	
 			{
-			log.debug "finding motion in multiple motion profile: ${it?.themotionsensors} Comparing: ${baseMotion.displayName}"
+			logdebug "finding motion in multiple motion profile: ${it?.themotionsensors} Comparing: ${baseMotion.displayName}"
 			if (it?.themotionsensors.displayName.contains(baseMotion.displayName))			//is this the active profile
 				{}
 			else
 				{
-				log.debug "Profile ${it?.thecontact.displayName} skipped motion sensor: baseMotion.displayName  not found in multiple" 
+				logdebug "Profile ${it?.thecontact.displayName} skipped motion sensor: baseMotion.displayName  not found in multiple" 
 				return false	//this continues the ***find*** loop, does not end function
 				}			
 			}
 		else
 			{
-			log.debug "finding motion in single motion profile: ${it?.themotionsensor.displayName} Comparing: ${baseMotion.displayName}"
+			logdebug "finding motion in single motion profile: ${it?.themotionsensor.displayName} Comparing: ${baseMotion.displayName}"
 			if (it?.themotionsensor.displayName!=baseMotion.displayName)			//is this the active profile
 				{
-				log.debug "Profile skipped motion sensor not found" 
+				logdebug "Profile skipped motion sensor not found" 
 				return false	//this continues the ***find*** loop, does not end function
 				}			
 			}
-		log.debug "Motion ${baseMotion.displayName} sensor was found in ${it?.thecontact.displayName} Profile that is ${it?.thecontact.currentContact}" 
+		logdebug "Motion ${baseMotion.displayName} sensor was found in ${it?.thecontact.displayName} Profile that is ${it?.thecontact.currentContact}" 
 		if (it?.thecontact.currentContact=="open")		//ignore this motion sensor other profile contact is open
 			{}
 		else	
@@ -1275,17 +1294,17 @@ def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 			def events=it.thecontact.events()
 			def esize=events.size()
 			def i = 0
-//			log.debug "motionActiveHandler scanning events ${esize}"
+//			logdebug "motionActiveHandler scanning events ${esize}"
 			def open_seconds=999999
 			for(i; i < esize; i++)
 				{
 				if (events[i].value == "open"){
 					open_seconds = Math.round((now() - events[i].date.getTime())/1000)
-//					log.debug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
+//					logdebug("value: ${events[i].value} now: ${now()} startTime: ${events[i].date.getTime()} seconds ${open_seconds}")
 					break;
 					}
 				}	
-//			log.debug "motionActiveHandler scan done ${esize} ${open_seconds}"
+//			logdebug "motionActiveHandler scan done ${esize} ${open_seconds}"
 			if (open_seconds > baseEntryDelay)
 				return false	//this continues the ***find*** loop, does not end function
 			}
@@ -1295,4 +1314,11 @@ def checkOtherDelayProfiles(baseContact, baseMotion, baseEntryDelay)
 //		end of ***FIND*** loop logic		
 
 	return ignoreSensor			//return to caller
-	}	
+	}
+
+def logdebug(txt)
+	{
+   	if (logDebugs)
+   		log.debug ("${txt}")
+    }
+	
