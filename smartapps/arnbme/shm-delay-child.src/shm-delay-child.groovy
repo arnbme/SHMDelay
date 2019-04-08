@@ -22,6 +22,8 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	Apr 07, 2019 v2.1.5  comment out logdebug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
+ *							modefix.id crashing user system and not used. 
  *	Mar 14, 2019 v2.1.4  Change: Period not saved in Apple IOS, remove it as a phone number delimter
  *	Mar 12, 2019 v2.1.4  Added: phone number delimiters #, and Period (.) the semi colon no longer shows in android, nor is saved in IOS?
  *	Mar 05, 2019 V2.1.4  Added: Allow user to limit alarm state when profile is active
@@ -152,7 +154,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.4";
+	return "2.1.5";
 	}
 	
 def pageZeroVerify()
@@ -644,7 +646,7 @@ def childalarmStatusHandler(evt)
 	if (parent?.globalFixMode)
 		{
 		def modefix=parent.findChildAppByName("SHM Delay ModeFix")
-		logdebug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
+//		logdebug "Modefix: ${modefix?.id} ${modefix?.getInstallationState()}"
 		if (modefix?.getInstallationState() == 'COMPLETE') 
 			{
 //			logdebug "going to modefix alarmstatushandler mode: ${theMode}"
