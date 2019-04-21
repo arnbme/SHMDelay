@@ -1,1 +1,1 @@
-# SHMDelay Version 2
+# SHMDelay Version 2 For Hubitat
