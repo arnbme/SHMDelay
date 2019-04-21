@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Apr 21, 2019 v1.1.1H Fix missing NEXT Button on pageone, add nextPage: "pageOneVerify" to Pageone definition per Patrick at HE
  *	Apr 21, 2019 v1.1.1H adjust available modes for Hubitat
  *	Jul 21, 2018 v1.1.1  When pin 0000 is added as a user pin add flag to ignore it on OFF button
  *							allowing the IRIS keypad to have one touch arming
@@ -101,7 +102,7 @@ def pageZero()
 
 def pageOne()
 	{
-	dynamicPage(name: "pageOne", title: "Pin code and Settings", uninstall: true)
+	dynamicPage(name: "pageOne", title: "Pin code and Settings", uninstall: true, nextPage: "pageOneVerify")
 		{
 		section
 			{
