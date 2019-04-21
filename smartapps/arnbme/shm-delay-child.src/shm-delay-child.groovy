@@ -23,6 +23,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Apr 21, 2019 v2.1.4AH remove uneeded entry delay time settings
+ *	Apr 21, 2019 v2.1.4AH Fix missing NEXT Button on pageone and multiple page twos, add nextPage: to dynamic pages
  *	Apr 20, 2019 v2.1.4AH move entry tones and talker request to delay talker module
  *	Mar 14, 2019 v2.1.4H add true to all device.currentValue to get real value not value at start of script
  *	Mar 14, 2019 v2.1.4  Change: Period not saved in Apple IOS, remove it as a phone number delimter
@@ -185,7 +187,7 @@ def pageZero()
 
 def pageOne()
 	{
-	dynamicPage(name: "pageOne", title: "The Sensors", uninstall: true)
+	dynamicPage(name: "pageOne", title: "The Sensors", uninstall: true, nextPage: "pageOneVerify")
 		{
 		section
 			{
@@ -202,7 +204,7 @@ def pageOne()
 		section
 			{	
 			input "thesimcontact", "capability.contactSensor", required: true,
-				title: "Simulated Contact Sensor (Must Monitor in HSM, used Only for Keypad Panic)"
+				title: "Simulated Contact Sensor (Must Monitor in SmartHome)"
 			input "contactname", "text", required: false, 
 				title: "(Optional!) Contact Name: When Real Contact Sensor is rejected as simulated, enter 4 to 8 alphanumeric characters from the IDE Device Type field to force accept device", submitOnChange: true
 			}
@@ -381,7 +383,7 @@ def isUnique(contact)
 
 def pageTwo()
 	{
-	dynamicPage(name: "pageTwo", title: "Entry and Exit Data", install: false, uninstall: true)
+	dynamicPage(name: "pageTwo", title: "Entry and Exit Data", install: false, uninstall: true, nextPage: "pageTwoVerify")
 		{
 		section("") 
 			{
@@ -668,13 +670,90 @@ def motionActiveHandler(evt)
 	}	
 		
 
+def entryTTS()
+	{
+	def locevent = [name:"shmdelaytalk", value: "entryDelay", isStateChange: true,
+    		displayed: true, descriptionText: "Issue entry delay talk event", linkText: "Issue entry delay talk event",
+    		data: theentrydelay]
+    sendLocationEvent(locevent)
+	}
+
 def doorOpensHandler(evt)
 	{
 	if (parent.globalDisable)
 		return false
-	if (['disarmed','allDisarmed'].contains(evt.value))
+	def alarmstatus = location.hsmStatus	//get HE alarm status
+	if (alarmstatus == 'disarmed' || alarmstatus=='allDisarmed')
 		thebeepers?.beep()
+	}	
 
+def prepare_to_soundalarm(shmtruedelay)
+	{
+//	def alarm = location.currentState("alarmSystemStatus")
+//	def alarmstatus = alarm?.value
+//	def lastupdt = alarm?.date.time
+	def myEvents = getLocationEventsSince("hsmStatus", new Date() - 30, [max:1])
+	def alarmstatus = myEvents[0].value
+//	def lastupdt = myEvents[0].unixTime
+
+	logdebug "Prepare to sound alarm entered $shmtruedelay"
+//	When keypad is defined: Issue an entrydelay for the delay on keypad. Keypad beeps
+	if (parent?.globalKeypadControl)
+		{
+		parent.globalKeypadDevices.each()
+			{
+			if (it.hasCommand("setEntryDelay"))
+				{
+				if (shmtruedelay)
+					{it.setEntryDelay(theentrydelay, [delay: 2000])}
+				else
+					{it.setEntryDelay(theentrydelay)}
+				}
+			}
+		parent.qsse_status_mode(false,"Entry%20Delay")
+		}	
+	else
+		{
+		if (settings.thekeypad)
+			{
+			if (shmtruedelay)
+				{thekeypad.setEntryDelay(theentrydelay, [delay: 2000])}
+			else
+				{thekeypad.setEntryDelay(theentrydelay)}
+			}
+		}
+//		when siren is defined: wait 2 seconds allowing people to get through door, then blast a siren warning beep
+//		Aug 31, 2017 add simulated beep when no beep command
+	if (settings.thesiren)
+		runIn(2, delayBeep)
+/*		{
+		thesiren.each		//fails when not defined as multiple contacts
+			{
+			if (it.hasCommand("beep"))
+				{
+				it.beep([delay: 2000])
+				runIn(2, delayBeep), [data: [it: "${it}"]])
+				}
+			else
+				{
+				it.off([delay: 2500])		//double off the siren to hopefully shut it
+				it.siren([delay: 2000])	
+				it.off([delay: 2250])
+				}
+			}
+		}	
+*/
+//		Trigger Alarm in theentrydelay seconds by opening the virtual sensor.
+//		Do not delay alarm when additional triggers occur by using overwrite: false
+	def now = new Date()
+	def runTime = new Date(now.getTime() + (theentrydelay * 1000))
+	runOnce(runTime, soundalarm, [data: [lastupdt: lastupdt, shmtruedelay: shmtruedelay], overwrite: false]) 
+	def locevent = [name:"shmdelaytalk", value: "entryDelay", isStateChange: true,
+    		displayed: true, descriptionText: "Issue entry delay talk event", linkText: "Issue entry delay talk event",
+    		data: theentrydelay]
+    sendLocationEvent(locevent)
+//	logdebug "sent location event for shmdelaytalk"
+	}
 
 //	wait for door to open in themotiondelay seconds 
 def waitfordooropen(evt)
@@ -967,3 +1046,8 @@ def logdebug(txt)
    	if (logDebugs)
    		log.debug ("${txt}")
     }
+
+def delayBeep()
+	{
+	theSiren.beep()
+	}
