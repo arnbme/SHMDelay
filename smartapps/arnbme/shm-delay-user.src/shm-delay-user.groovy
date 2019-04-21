@@ -14,6 +14,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *	
+ *	Apr 21, 2019 v1.1.1H adjust available modes for Hubitat
  *	Jul 21, 2018 v1.1.1  When pin 0000 is added as a user pin add flag to ignore it on OFF button
  *							allowing the IRIS keypad to have one touch arming
  *							depending upon firmware hitting off or partial once or twice with no pin enters a 0000 pin								
@@ -40,7 +41,7 @@ definition(
 //import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
-preferences {
+/*preferences {
 	page(name: "pageZeroVerify")
 	page(name: "pageZero", nextPage: "pageZeroVerify")
 	page(name: "pageOne", nextPage: "pageOneVerify")
@@ -53,10 +54,24 @@ preferences {
 	page(name: "pageFourVerify")
 	page(name: "pageFive")		//recap page when everything is valid. No changes allowed.
 	}
+*/
+preferences {
+	page(name: "pageZeroVerify")
+	page(name: "pageZero", nextPage: "pageZeroVerify")
+	page(name: "pageOne", nextPage: "pageOneVerify")
+	page(name: "pageOneVerify", nextPage: "pageTwo")
+	page(name: "pageTwo", nextPage: "pageTwoVerify")		//schedule page
+	page(name: "pageTwoVerify", nextPage: "pageThree")
+	page(name: "pageThree", nextPage: "pageThreeVerify")	//Restrictions page
+	page(name: "pageThreeVerify", nextPage: "pageFour")
+	page(name: "pageFour", nextPage: "pageFourVerify")		//Pin msg overrides
+	page(name: "pageFourVerify", nextPage: "pageFive")
+	page(name: "pageFive")		//recap page when everything is valid. No changes allowed.
+	}
 
 def version()
 	{
-	return "1.1.1";
+	return "1.1.1H";
 	}
 
 def pageZeroVerify()
@@ -105,7 +120,9 @@ def pageOne()
 				title: "Four digit numeric code"
 			input "theusername", "text", required: true, submitOnChange: true,
 				title: "User Name"
-			input "thepinusage", "enum", options:["User", "UserRoutinePiston", "Routine", "Piston", "Panic", "Ignore", "Disabled"], 
+//			input "thepinusage", "enum", options:["User", "UserRoutinePiston", "Routine", "Piston", "Panic", "Ignore", "Disabled"], 
+//				required: true, title: "Pin Usage", submitOnChange: true
+			input "thepinusage", "enum", options:["User", "Panic", "Ignore", "Disabled"], 
 				required: true, title: "Pin Usage", submitOnChange: true
 			if (theuserpin == '0000' && (thepinusage == 'User'|| thepinusage == 'UserRoutinePiston'))
 				{
@@ -198,14 +215,16 @@ def pageOne()
 			}	
 		if (theusername)
 			{
-			section([mobileOnly:true]) 
+			section() 
 				{
-				label title: "Profile name", defaultValue: "Profile: User: ${theusername}", required: false
+				label title: "Profile name", defaultValue: "User: ${theusername}", required: true, 
+					description: "User: ${theusername}"
+				if(!app.label)app.updateLabel("User: "+theusername)
 				}
 			}	
 		else	
 			{
-			section([mobileOnly:true]) 
+			section() 
 				{
 				label title: "Profile name", required: false
 				}
