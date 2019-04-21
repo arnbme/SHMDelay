@@ -18,6 +18,18 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Apr 20, 2019 	V0.1.8AH Move sendevent for arm and disarm message here, keypad control in one place
+ *	Apr 20, 2019 	V0.1.8AH Move sendevent for exit message here, handle double arming issue with AtomicState
+ *	Apr 17, 2019 	V0.1.8H Add code to run system off HSM modes, caused double away arming
+ *								fixed with logic on mode change, mode change to armstate done with HSM
+ *								This module does armstate to mode change.
+ *								Note issuing mode change causes a second armingMode, this is a HE BUG
+ *	Apr 16, 2019 	V0.1.8H Modified: Add third HSM armed state
+ *	Apr 12, 2019 	V0.1.7H Modified: To work in Hubitat
+ *				 			need to add mode armedStay he has 4 arm modes
+ *
+ *	Mar 05, 2019 	V0.1.7  Added: Boolean flag for debug message logging, default false
+ *
  *	Jan 06, 2019 	V0.1.6  Added: Support for 3400_G Centralite V3
  *
  * 	Oct 17, 2018	v0.1.5	Allow user to set if entry and exit delays occur for a state/mode combination
@@ -46,7 +58,8 @@ definition(
 	parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
-    iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
+    iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
+    singleInstance: true)
 
 preferences {
 	page(name: "pageOne", nextPage: "pageOneVerify")
@@ -57,7 +70,7 @@ preferences {
 
 def version()
 	{
-	return "0.1.6";
+	return "0.1.8H";
 	}
 
 def pageOne(error_msg)
@@ -77,6 +90,11 @@ def pageOne(error_msg)
 			required: false,
 			page: "aboutPage")
 			}
+		section ("Debugging messages")
+			{
+			input "logDebugs", "bool", required: false, defaultValue:false,
+				title: "Log debugging messages? Normally off/false"
+			}
 		section ("Alarm State: Disarmed / Off")
 			{
 			input "offModes", "mode", required: true, multiple: true, defaultValue: "Home",
@@ -93,54 +111,43 @@ def pageOne(error_msg)
 			input "awayModes", "mode", required: true, multiple: true, defaultValue: "Away", submitOnChange: true,
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
-				title: "Default Mode: Armed Away"
-			awayModes.each
+				title: "Default Mode for Armed Away"
+/*			awayModes.each
 				{
 				input "awayExit${it.value}", "bool", required: true, defaultValue: true,
 					title: "Create Exit Delay for Armed (Away) ${it.value} mode"
 				input "awayEntry${it.value}", "bool", required: true, defaultValue: true,
 					title: "Create Entry Delay for Armed (Away) ${it.value} mode"
 				}	
-			}	
-		section ("Alarm State: Armed (Home) aka Stay or Night")
+*/			}	
+		section ("Alarm State: Armed (Night)")
 			{
-			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night", submitOnChange: true,
+			input "nightModes", "mode", required: true, multiple: true, defaultValue: "Night", submitOnChange: true,
+				title: "Valid Modes for Armed Night"
+			input "nightDefault", "mode", required: true, defaultValue: "Night",
+				title: "Default Mode for Armed Night"
+/*			nightModes.each
+				{
+				input "nightExit${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Exit Delay for Armed (Night) ${it.value} mode"
+				input "nightEntry${it.value}", "bool", required: true, defaultValue: true,
+						title: "Create Entry Delay for Armed (Night) ${it.value} mode"
+				}	
+*/			}	
+		section ("Alarm State: Armed (Home) aka Stay")
+			{
+			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Stay", submitOnChange: true,
 				title: "Valid Modes for Armed Home"
-			input "stayDefault", "mode", required: true, defaultValue: "Night",
+			input "stayDefault", "mode", required: true, defaultValue: "Stay",
 				title: "Default Mode for Armed Home"
-			stayModes.each
+/*			stayModes.each
 				{
 				input "stayExit${it.value}", "bool", required: true, defaultValue: false,
 					title: "Create Exit Delay for Armed (Home) ${it.value} mode"
-				if (it.value =='Stay')
-					input "stayEntry${it.value}", "bool", required: true, defaultValue: true,
-						title: "Create Entry Delay for Armed (Home) ${it.value} mode"
-				else
-					input "stayEntry${it.value}", "bool", required: true, defaultValue: false,
-						title: "Create Entry Delay for Armed (Home) ${it.value} mode"
+				input "stayEntry${it.value}", "bool", required: true, defaultValue: true,
+					title: "Create Entry Delay for Armed (Home) ${it.value} mode"
 				}	
-			}	
-		if (parent.globalKeypadControl)
-			{
-			def showLights=false;
-			parent.globalKeypadDevices.each
-				{ keypad ->
-				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
-				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
-					{showLights=true}
-				}					
-			if (showLights)
-				{
-				section ("A model 3400 Keypad is defined\nSet the keypad Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
-					{
-					stayModes.each
-						{
-						input "stayLight${it.value}", "enum", options: ["Night", "Stay"], required: true, defaultValue: "Night",
-							title: "${it.value} Mode"
-						}
-					}
-				}	
-			}
+*/			}	
 		section
 			{
 			paragraph "SHM Delay Modefix ${version()}"
@@ -236,21 +243,35 @@ def pageTwo()
 				title: "Valid modes for: Armed Away"
 			input "awayDefault", "mode", required: true, defaultValue: "Away",
 				title: "Default Mode: Armed Away"
-			awayModes.each
+/*			awayModes.each
 				{
 				input "awayExit${it.value}", "bool", required: true, defaultValue: true,
 					title: "Create Exit Delay for Armed (Away) ${it.value} mode"
 				input "awayEntry${it.value}", "bool", required: true, defaultValue: true,
 					title: "Create Entry Delay for Armed (Away) ${it.value} mode"
 				}	
-			}	
-		section ("Alarm State: Armed (Home) aka Stay or Night")
+*/			}	
+		section ("Alarm State: Armed (Night)")
 			{
-			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Night",  submitOnChange: true,
+			input "nightModes", "mode", required: true, multiple: true, defaultValue: "Night",  submitOnChange: true,
+				title: "Valid Modes for Armed Night"
+			input "nightDefault", "mode", required: true, defaultValue: "Night",
+				title: "Default Mode for Armed Night"
+/*			stayModes.each
+				{
+				input "nightExit${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Exit Delay for Armed (Night) ${it.value} mode"
+				input "nightEntry${it.value}", "bool", required: true, defaultValue: false,
+					title: "Create Entry Delay for Armed (Night) ${it.value} mode"
+				}
+*/			}	
+		section ("Alarm State: Armed (Home) aka Stay")
+			{
+			input "stayModes", "mode", required: true, multiple: true, defaultValue: "Stay",  submitOnChange: true,
 				title: "Valid Modes for Armed Home"
-			input "stayDefault", "mode", required: true, defaultValue: "Night",
+			input "stayDefault", "mode", required: true, defaultValue: "Stay",
 				title: "Default Mode for Armed Home"
-			stayModes.each
+/*			stayModes.each
 				{
 				input "stayExit${it.value}", "bool", required: true, defaultValue: false,
 					title: "Create Exit Delay for Armed (Home) ${it.value} mode"
@@ -258,29 +279,8 @@ def pageTwo()
 					title: "Create Entry Delay for Armed (Home) ${it.value} mode"
 				}	
 				
-			}	
-		if (parent.globalKeypadControl)
-			{
-			def showLights=false;
-			parent.globalKeypadDevices.each
-				{ keypad ->
-				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
-//				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
-				if (['3400','3400-G'].contains(keypad?.getModelName()))
-					{showLights=true}
-				}					
-			if (showLights)
-				{
-				section ("A model 3400 Keypad is defined\nSet the Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
-					{
-					stayModes.each
-						{
-						input "stayLight${it.value}", "enum", options: ["Night", "Stay"], required: true, defaultValue: "Night",
-							title: "${it.value} Mode"
-						}
-					}
-				}	
-			}
+*/			}	
+
 		section
 			{
 			paragraph "SHM Delay Modefix ${version()}"
@@ -295,14 +295,11 @@ def aboutPage()
 		{
 		section 
 			{
-			paragraph "Have you ever wondered why Mode restricted Routines, SmartApps, and Pistons sometimes fail to execute, or execute when they should not?\n\n"+
-			"Perhaps you conflated AlarmState and Mode, however they are separate and independent SmartThings settings, "+
-			"and when Alarm State is changed using the SmartThings Dashboard Home Solutions---surprise, Mode does not change!\n\n" +
-			"SmartHome routines generally, but not always, have a defined SystemAlarm and Mode settings. "+
-			"Experienced SmartThings users seem to favor changing the AlarmState using SmartHome routines, avoiding use of the Dashboard's Home Solutions\n\n"+
-			"If like me, you can't keep track of all this, or utilize the Dashboard to change the AlarmState, this app may be helpful.\n\n"+
-			"For each AlarmState, set the Valid Mode states, and a Default Mode. This SmartApp attempts to correctly set the Mode by monitoring AlarmState for changes. When the current Mode is not defined as a Valid Mode for the AlarmState, the app sets Mode to the AlarmState's Default Mode\n\n"+
-			"Please Note: This app does not, directly or (knowingly) indirectly, execute a SmartHome Routine"  
+			paragraph "Have you ever wondered why Mode restriced Rule Machine rules sometimes fail to execute, or execute when they should not?\n\n"+
+			"Perhaps you conflated HSM AlarmState and Mode, however they are separate and independent settings, "+
+			"and when Alarm State is changed---surprise, Mode does not change!\n\n" +
+			"This app changes the Mode when the HSM Alarm State changes. It also triggers most of the app's TTS messaging.\n\n"+
+			"HSM changes the Alarm State when the Mode changes"
 			}
 		}
 	}
@@ -310,118 +307,140 @@ def aboutPage()
 
 
 def installed() {
-    log.debug "Installed with settings: ${settings}"
+    log.info "Installed with settings: ${settings}"
     initialize()
 }
 
 def updated() {
-    log.debug "Updated with settings: ${settings}"
+    log.info "Updated with settings: ${settings}"
     unsubscribe()
     initialize()
 }
 
 def initialize() 
 	{
-	subscribe(location, "alarmSystemStatus", alarmStatusHandler)
+	subscribe(location, 'hsmStatus', alarmStatusHandler)
 	}
+
 
 def alarmStatusHandler(evt)
 	{
-/*	some entries to this function are direct from ST Events
-	others are from SHM Delay Child repackaged evt object 
-	which passes a childid property stoppings multiple notifications from sending
-*/	
-	def theAlarm = evt.value		//off, stay, or away Alarm Mode set by event value
-	def fromST=true					//event is assumed from Smarthings subscribe till proven otherwise
-	try
+	def theAlarm = evt.value as String				//curent alarm state
+	def lastAlarm = atomicState?.hsmstate
+	atomicState.hsmstate=theAlarm
+	def theMode = location.currentMode as String	//warning without string parameter it wont match
+	logdebug "ModeFix alarmStatusHandler entered, HSM state: ${theAlarm}, lastAlarm: ${lastAlarm} Mode: ${theMode} "
+//	logdebug "ModeFix alarmStatusHandler entered, HSM state: ${theAlarm}, Mode: ${theMode}"
+//	Fix the mode to match the Alarm State. 
+	if (theAlarm=="disarmed" || theAlarm=="allDisarmed")
 		{
-		if (evt.childid)
-			fromST=false
-		}
-	catch (e)
-		{}
-//	log.debug "alarm status entry ${fromST} ${theAlarm} ${evt.source}"
-	if (theAlarm == "night")	//bad AlarmState set by unmodified Keypad module
-		{
-  		def event = [
-  		      name:'alarmSystemStatus',
-  		      value: "stay",
-  		      displayed: true,
-  		      description: "SHM Delay Fix System Status from night to stay"]
-    		sendLocationEvent(event)	//change alarmstate to stay	
-		setLocationMode("Night")	//set the mode
-//		sendNotificationEvent("Change the Lock Manager Keypad module to version in github ARNBME lock-master SHMDelay")
-		log.warn "Change the Lock Manager Keypad module to version in github ARNBME lock-master SHMDelay ModeFix"
-		return "Night"
-		}
-	if (parent && !parent.globalFixMode)
-		{return false}
-	def theMode = location.currentMode
-	def oldMode = theMode
-	def delaydata=evt?.data
-	if (delaydata==null)
-		{}
-	else	
-	if (delaydata.startsWith("shmtruedelay"))	//ignore SHM Delay Child "true entry delay" alarm state changes
-		{
-		log.debug "Modefix ignoring True Entry Delay event, alarm state ${theAlarm}"
-		return false}
-	log.debug "ModeFix alarmStatusHandler entered alarm status change: ${theAlarm} Mode: ${theMode} "
-//	Fix the mode to match the Alarm State. When user sets alarm from dashboard
-//	the Mode is not set, resulting in Smarthings having Schizophrenia or cognitive dissonance. 
-	def modeOK=false
-	if (theAlarm=="off")
-		{
-		offModes.each
-			{ child ->
-			if (theMode == child)
-				{modeOK=true}
-			}
-		if (!modeOK)
+		parent.globalKeypadDevices.setDisarmed()
+		ttsDisarmed()
+		if (!offModes.contains(theMode))
 			{
-			if (fromST)
-				setLocationMode(offDefault)
-			theMode=offDefault
+			setLocationMode(offDefault)
 			}
 		}
 	else
-	if (theAlarm=="stay")
+	if (theAlarm=="armedAway" || theAlarm=="armingAway")
 		{
-		stayModes.each
-			{ child ->
-			if (theMode == child)
-				{modeOK=true}
-			}
-		if (!modeOK)
+		if (theAlarm=="armedAway")
 			{
-			if (fromST)
-				setLocationMode(stayDefault)
-			theMode=stayDefault
+			parent.globalKeypadDevices.setArmedAway()
+			ttsArmed(theAlarm)
+			}
+		else 
+		if (theAlarm != lastAlarm)
+			{
+			parent.globalKeypadDevices.setExitDelay(evt.jsonData.seconds)
+			ttsExit(evt.jsonData.seconds)
+			}
+		if (!awayModes.contains(theMode))
+			{
+			setLocationMode(awayDefault)
 			}
 		}
 	else
-	if (theAlarm=="away")
+	if (theAlarm=="armedNight" || theAlarm=="armingNight")
 		{
-		awayModes.each
-			{ child ->
-			if (theMode == child)
-				{modeOK=true}
-			}
-		if (!modeOK)
+		if (theAlarm=="armedNight")
 			{
-			if (fromST)			
-				setLocationMode(awayDefault)
-			theMode=awayDefault
+			parent.globalKeypadDevices.each
+				{
+				if (['3400','3400-G'].contains(it.data.model))
+					it.setArmedNight()
+				else	
+					it.setArmedStay()			//non Centralite keypads have 3 mode lights, light partial
+				}
+			ttsArmed(theAlarm)
+			}
+		else
+		if (theAlarm != lastAlarm)
+			{
+			parent.globalKeypadDevices.setExitDelay(evt.jsonData.seconds)
+			ttsExit(evt.jsonData.seconds)
+			}
+		if (!nightModes.contains(theMode))
+			{
+			setLocationMode(nightDefault)
 			}
 		}
-	else{
-		log.error "ModeFix alarmStatusHandler Unknown alarm mode: ${theAlarm} in "}
-	if (theMode != oldMode)
+	else
+//	This is equivalent to ST Stay mode		
+	if (theAlarm=="armedHome" || theAlarm == "armingHome")
 		{
-		if (fromST)	
-			sendNotificationEvent("Modefix: Mode changed to ${theMode}. Cause: ${evt.source} set alarm to ${theAlarm}")
-		log.debug("ModeFix alarmStatusHandler Mode was changed From:$oldMode To:$theMode")
+		if (theAlarm=="armedHome")
+			{
+			parent.globalKeypadDevices.setArmedStay()
+			ttsArmed(theAlarm)
+			}
+		else
+		if (theAlarm != lastAlarm)
+			{
+			parent.globalKeypadDevices.setExitDelay(evt.jsonData.seconds)
+			ttsExit(evt.jsonData.seconds)
+			}
+		if (!stayModes.contains(theMode))
+			{
+			setLocationMode(stayDefault)
+			}
 		}
-	return theMode
+	else
+		{
+		log.error "ModeFix alarmStatusHandler Unknown alarm mode: ${theAlarm}"
+		return false
+		}
 	}
 	
+def ttsExit(delay)
+	{
+	logdebug "ttsExit delay: $delay"
+	def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
+		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
+		data: delay]	
+	sendLocationEvent(locevent)
+	}
+
+def ttsDisarmed()
+	{
+	logdebug "ttsDisarmed"
+	def locevent = [name:"shmdelaytalk", value: "disarm", isStateChange: true,
+		displayed: true, descriptionText: "Issue disarm talk event", linkText: "Issue disarm delay talk event",
+		data: 'none']	
+	sendLocationEvent(locevent)
+	}
+
+def ttsArmed(theAlarm)
+	{
+	logdebug "ttsArmed"
+	def locevent = [name:"shmdelaytalk", value: "armed", isStateChange: true,
+		displayed: true, descriptionText: "Issue armed talk event", linkText: "Issue armed delay talk event",
+		data: theAlarm]	
+	sendLocationEvent(locevent)
+	}
+	
+def logdebug(txt)
+	{
+   	if (logDebugs)
+   		log.debug ("${txt}")
+    }	
