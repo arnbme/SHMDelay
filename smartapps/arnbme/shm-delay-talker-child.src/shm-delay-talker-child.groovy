@@ -10,7 +10,7 @@
  *
  *  Copyright 2017 Arn Burkhoff
  *
- * 	Changes to Apache License
+ * 	Changes to Apache License 
  *	4. Redistribution. Add paragraph 4e.
  *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
  *	 	and cannot be used for commercial purposes.
