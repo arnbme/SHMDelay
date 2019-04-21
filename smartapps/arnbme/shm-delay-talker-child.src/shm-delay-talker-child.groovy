@@ -10,7 +10,7 @@
  *
  *  Copyright 2017 Arn Burkhoff
  *
- * 	Changes to Apache License 
+ * 	Changes to Apache License
  *	4. Redistribution. Add paragraph 4e.
  *	4e. This software is free for Private Use. All derivatives and copies of this software must be free of any charges,
  *	 	and cannot be used for commercial purposes.
@@ -24,6 +24,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	Apr 21, 2019 v2.1.4AH Fix missing NEXT Button on pageone, add nextPage: to dynamic page 1
+ * 	Apr 21, 2019 v1.0.4AH set as single instance remove label
+ * 	Apr 21, 2019 v1.0.4AH All keypad messages in one place for easy setup. Produce arm and disarm messages
+ * 	Apr 20, 2019 v1.0.4AH subscribe to hsmAlert events for pin entry messages
  * 	Apr 20, 2019 v1.0.4H Modify for hubitat and fully tts
  * 	Dec 17, 2018 v1.0.4 Change speaker capability audioNotification to musicPlayer. Did not select Sonos speakers
  * 	Nov 04, 2018 v1.0.3 Add support for generic quiet time per user request on messages
@@ -42,11 +46,12 @@ definition(
     parent: "arnbme:SHM Delay",
     iconUrl: "https://www.arnb.org/IMAGES/hourglass.png",
     iconX2Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
-    iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png")
+    iconX3Url: "https://www.arnb.org/IMAGES/hourglass@2x.png",
+    singleInstance: true)
 
 def version()
 	{
-	return "1.0.4H";
+	return "1.0.4AH";
 	}
 
 preferences {
@@ -83,7 +88,7 @@ def pageZero()
 
 def pageOne()
 	{
-	dynamicPage(name: "pageOne", title: "Talker Messages and Devices", install: false, uninstall: true)
+	dynamicPage(name: "pageOne", title: "Talker Messages and Devices", install: false, uninstall: true, nextPage: "pageOneVerify")
 		{
 		section("The SHM Delay Message Settings")
 			{
@@ -92,27 +97,20 @@ def pageOne()
 				paragraph "${state.error_data}"
 				state.remove("error_data")
 				}
-			paragraph "%nn in any message is replaced with the respective delay seconds"
 			input "logDebugs", "bool", required:true, defaultValue:false,
 				title: "Log debugging messages? Normally off/false"
-			input "theExitMsgKypd", "string", required: false, title: "Exit message", 
+			input "theExitMsgKypd", "string", required: false, title: "Exit message: %nn replaced with delay seconds", 
 				defaultValue: "Alarm system is arming in %nn seconds. Please exit the facility"
-//			input "theExitMsgNkypd", "string", required: false, title: "Non-Keypad initiated Exit message", 
-//				defaultValue: "You have %nn seconds to exit the facility"
-//			if (parent?.globalKeypadControl)
-//				{
-				input "theEntryMsg", "string", required: false, title: "Entry message", 
-					defaultValue: "Please enter your pin on the keypad"
-//				}
-//			else
-//				{
-//				input "theEntryMsg", "string", required: false, title: "Entry message", 
-//					defaultValue: "Please disarm Smart Home Monitor"
-//				}
+			input "theEntryMsg", "string", required: false, title: "Entry message: %nn replaced with delay seconds", 
+				defaultValue: "Please enter your pin on the keypad"
+			input "theArmMsg", "string", required: false, title: "Armed message: %hsmStatus replaced with HSM Arm State", 
+					defaultValue: "Alarm System is now armed in %hsmStatus Mode"
+			input "theDisarmMsg", "string", required: false, title: "Disarm message", 
+					defaultValue: "System Disarmed"
 			input(name: 'theStartTime', type: 'time', title: 'Do not talk: Start Time', required: false)
 			input(name: 'theEndTime', type: 'time', title: 'Do not talk: End Time', required: false)
 			input "theSoundChimes", "bool", defaultValue: true, required: false,
-				title: "Sound TTS Chimes with messages when possible" Default: On/True"
+				title: "Sound TTS Chimes with messages Default: On/True"
 			input "theTTS", "capability.speechSynthesis", required: false, multiple: true, submitOnChange: true,
 				title: "LanNouncer/DLNA TTS Devices"
 			input "theSpeakers", "capability.musicPlayer", required: false, multiple: true, submitOnChange: true,
@@ -120,43 +118,6 @@ def pageOne()
 			input "theVolume", "number", required: true, range: "1..100", defaultValue: 40,
 				title: "Speaker Volume Level from 1 to 100"
 			}
-
-//		Generate a unique Profile
-		if (app?.getLabel())
-			{
-			section() 
-				{
-				label title: "Profile name", defaultValue: app.getLabel(), required: true
-				}
-			}	
-
-		else
-			{
-			def namematch=true
-			def cid=0
-			def talkers
-			def appLabel
-			while (namematch)
-				{
-				namematch=false
-				cid=cid+1
-				appLabel="Profile: Talk: ${cid}"
-//				logdebug "applabel: ${appLabel}"
-				talkers = parent.findAllChildAppsByName("SHM Delay Talker Child")
-				talkers.each
-					{
-//					logdebug "child label: ${it?.getLabel()} ${it?.getInstallationState()}"
-					if (it.getInstallationState() == 'COMPLETE' && it.getLabel() == appLabel)
-						namematch=true
-//					else
-//						logdebug "no match ${it.getLabel()} $appLabel"  
-					}
-				}	
-			section() 
-				{
-				label title: "Profile name", defaultValue: appLabel, required: true
-				}
-			}	
 		}
 	}	
 
@@ -186,7 +147,7 @@ def pageOneVerify() 				//edit page one info, go to pageTwo when valid
 //	This page summarizes the data prior to save	
 def pageTwo(error_data)
 	{
-	dynamicPage(name: "pageTwo", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
+	dynamicPage(name: "pageTwo", title: "Verify settings then tap Done, or go back (tap <) to change settings", install: true, uninstall: true)
 		{
 		def chimes=false
 		def chimetxt='(Chime) '
@@ -199,17 +160,21 @@ def pageTwo(error_data)
 		section
 			{
 			if (theExitMsgKypd)
-				paragraph "The Keypad Exit Delay Message:\n${chimetxt}${theExitMsgKypd}"
+				paragraph "The Exit Delay Message:\n${chimetxt}${theExitMsgKypd}"
 			else	
-				paragraph "The Keypad Exit Delay Message is not defined"
-//			if (theExitMsgNkypd)
-//				paragraph "The Non-Keypad Exit Delay Message:\n${chimetxt}${theExitMsgNkypd}"
-//			else	
-//				paragraph "The Non-Keypad Exit Delay Message is not defined"
+				paragraph "The Exit Delay Message is not defined"
 			if (theEntryMsg)
 				paragraph "The Entry Delay Message:\n${chimetxt}${theEntryMsg}"
 			else	
 				paragraph "The Entry Delay Message is not defined"
+			if (theArmMsg)
+				paragraph "The Armed Message:\n${theArmMsg}"
+			else	
+				paragraph "The Armed Message is not defined"
+			if (theDisarmMsg)
+				paragraph "The Disarm Message:\n${theDisarmMsg}"
+			else	
+				paragraph "The Disarm Message is not defined"
 			if (theStartTime>"" && theEndTime>"")
 				paragraph "Quiet time active from ${theStartTime.substring(11,16)} to ${theEndTime.substring(11,16)}"	
 			else
@@ -228,7 +193,7 @@ def pageTwo(error_data)
 				}
 			else	
 				paragraph "No Speaker Devices are defined"
-			paragraph "${app.getLabel()}\nModule SHM Delay User ${version()}"
+			paragraph "Module SHM Delay Talker Child ${version()}"
 			}	
 		}
 	}	
@@ -246,9 +211,20 @@ def updated() {
 }
 
 def initialize() {
+	subscribe(location, "hsmAlert", alertHandler)
 	subscribe(location, "shmdelaytalk", TalkerHandler)
 	}
 
+def alertHandler(evt)
+	{
+	logdebug("alertHandler entered, event: ${evt.value}")
+	if (['intrusion-delay','intrusion-home-delay','intrusion-night-delay'].contains(evt.value))
+		{
+		parent.globalKeypadDevices.setEntryDelay(evt.jsonData.seconds)
+		TalkerHandler([value: 'entryDelay', data: evt.jsonData.seconds])
+		}
+	}
+	
 def TalkerHandler(evt)
 	{
 	logdebug("TalkerHandler entered, event: ${evt.value} ${evt?.data}")
@@ -266,13 +242,14 @@ def TalkerHandler(evt)
 			}
 		}
 
-
 	if (evt.value=="entryDelay" && theEntryMsg>"")
 		{
-		if (delaydata>"")
-			msgout=theEntryMsg.replaceAll("%nn",delaydata)
+		def delaydatax=delaydata as String		//throws casting error if not done
+		if (delaydatax>"")
+			msgout=theEntryMsg.replaceAll("%nn",delaydatax)
 		else
 			msgout=theEntryMsg
+		log.debug msgout	
 		if (theTTS)
 			{
 			if (theSoundChimes)
@@ -307,39 +284,28 @@ def TalkerHandler(evt)
 			}
 		}
 	else
-//	if (evt.value=="exitDelayNkypd" && theExitMsgNkypd>"")
-	if (evt.value=="exitDelayNkypd" && theExitMsgKypd>"")
+	if (evt.value=="disarm" && theDisarmMsg>"")
 		{
-		if (delaydata>"")
-			msgout=theExitMsgKypd.replaceAll("%nn",delaydata)
-		else
-			msgout=theExitMsgkypd
 		if (theTTS)
-			{
-			if (theSoundChimes)
-				{
-				theTTS.chime()
-				runInMillis(1800, ttsDelay, [data: [tts: msgout]])
-				}
-			else		
-				{theTTS.speak(msgout)}
-			}
+			{theTTS.speak(theDisarmMsg)}					
 		if (theSpeakers)
-			{
-			theSpeakers.playTextAndResume(msgout,theVolume)
-			}
+			{theSpeakers.playTextAndResume(theDisarmMsg,theVolume)}
 		}
-	if (evt.value=="ArmCancel" && delaydata>"")
+	else
+	if (evt.value=="armed" && theArmMsg>"")
 		{
+		def hsmState = [armedAway: "Away", armedHome: "Home", armedNight: "Night"][delaydata] ?: delaydata
+		msgout=theArmMsg.replaceAll("%hsmStatus",hsmState)
 		if (theTTS)
-			{theTTS.speak(delaydata)}					
+			{theTTS.speak(msgout)}					
 		if (theSpeakers)
-			{theSpeakers.playTextAndResume(delaydata,theVolume)}
+			{theSpeakers.playTextAndResume(msgout,theVolume)}
 		}
 	}
 
 def ttsDelay(map)
 	{
+	log.debug "ttsDelay entered: ${map.tts}"
 	theTTS.speak(map.tts)
 	}
 
