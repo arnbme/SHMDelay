@@ -24,6 +24,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * 	Apr 20, 2019 v1.0.4H Modify for hubitat and fully tts
  * 	Dec 17, 2018 v1.0.4 Change speaker capability audioNotification to musicPlayer. Did not select Sonos speakers
  * 	Nov 04, 2018 v1.0.3 Add support for generic quiet time per user request on messages
  *						Delayed messages are super delayed by unknown cloud processing error, allow for no chime and instant speak
@@ -45,7 +46,7 @@ definition(
 
 def version()
 	{
-	return "1.0.4";
+	return "1.0.4H";
 	}
 
 preferences {
@@ -92,24 +93,26 @@ def pageOne()
 				state.remove("error_data")
 				}
 			paragraph "%nn in any message is replaced with the respective delay seconds"
-			input "theExitMsgKypd", "string", required: true, title: "Keypad initiated Exit message", 
-				defaultValue: "Smart Home Monitor is arming in %nn seconds. Please exit the facility"
-			input "theExitMsgNkypd", "string", required: true, title: "Non-Keypad initiated Exit message", 
-				defaultValue: "You have %nn seconds to exit the facility"
-			if (parent?.globalKeypadControl)
-				{
+			input "logDebugs", "bool", required:true, defaultValue:false,
+				title: "Log debugging messages? Normally off/false"
+			input "theExitMsgKypd", "string", required: false, title: "Exit message", 
+				defaultValue: "Alarm system is arming in %nn seconds. Please exit the facility"
+//			input "theExitMsgNkypd", "string", required: false, title: "Non-Keypad initiated Exit message", 
+//				defaultValue: "You have %nn seconds to exit the facility"
+//			if (parent?.globalKeypadControl)
+//				{
 				input "theEntryMsg", "string", required: false, title: "Entry message", 
 					defaultValue: "Please enter your pin on the keypad"
-				}
-			else
-				{
-				input "theEntryMsg", "string", required: false, title: "Entry message", 
-					defaultValue: "Please disarm Smart Home Monitor"
-				}
+//				}
+//			else
+//				{
+//				input "theEntryMsg", "string", required: false, title: "Entry message", 
+//					defaultValue: "Please disarm Smart Home Monitor"
+//				}
 			input(name: 'theStartTime', type: 'time', title: 'Do not talk: Start Time', required: false)
 			input(name: 'theEndTime', type: 'time', title: 'Do not talk: End Time', required: false)
 			input "theSoundChimes", "bool", defaultValue: true, required: false,
-				title: "Sound TTS Chimes with messages when using LanNouncer. If Cloud is slow and message delayed set false. Default: On/True"
+				title: "Sound TTS Chimes with messages when possible" Default: On/True"
 			input "theTTS", "capability.speechSynthesis", required: false, multiple: true, submitOnChange: true,
 				title: "LanNouncer/DLNA TTS Devices"
 			input "theSpeakers", "capability.musicPlayer", required: false, multiple: true, submitOnChange: true,
@@ -121,7 +124,7 @@ def pageOne()
 //		Generate a unique Profile
 		if (app?.getLabel())
 			{
-			section([mobileOnly:true]) 
+			section() 
 				{
 				label title: "Profile name", defaultValue: app.getLabel(), required: true
 				}
@@ -138,18 +141,18 @@ def pageOne()
 				namematch=false
 				cid=cid+1
 				appLabel="Profile: Talk: ${cid}"
-//				log.debug "applabel: ${appLabel}"
+//				logdebug "applabel: ${appLabel}"
 				talkers = parent.findAllChildAppsByName("SHM Delay Talker Child")
 				talkers.each
 					{
-//					log.debug "child label: ${it?.getLabel()} ${it?.getInstallationState()}"
+//					logdebug "child label: ${it?.getLabel()} ${it?.getInstallationState()}"
 					if (it.getInstallationState() == 'COMPLETE' && it.getLabel() == appLabel)
 						namematch=true
 //					else
-//						log.debug "no match ${it.getLabel()} $appLabel"  
+//						logdebug "no match ${it.getLabel()} $appLabel"  
 					}
 				}	
-			section([mobileOnly:true]) 
+			section() 
 				{
 				label title: "Profile name", defaultValue: appLabel, required: true
 				}
@@ -185,7 +188,7 @@ def pageTwo(error_data)
 	{
 	dynamicPage(name: "pageTwo", title: "Verify settings then tap Save, or tap < (back) to change settings", install: true, uninstall: true)
 		{
-		def chimes=true
+		def chimes=false
 		def chimetxt='(Chime) '
 		try 
 			{chimes=theSoundChimes}
@@ -196,15 +199,15 @@ def pageTwo(error_data)
 		section
 			{
 			if (theExitMsgKypd)
-				paragraph "The Keypad Exit Delay Message:\n${chimetxt}${theExitMsgKypd} ${chimetxt}"
+				paragraph "The Keypad Exit Delay Message:\n${chimetxt}${theExitMsgKypd}"
 			else	
 				paragraph "The Keypad Exit Delay Message is not defined"
-			if (theExitMsgNkypd)
-				paragraph "The Non-Keypad Exit Delay Message:\n${chimetxt}${theExitMsgNkypd} ${chimetxt}"
-			else	
-				paragraph "The Non-Keypad Exit Delay Message is not defined"
+//			if (theExitMsgNkypd)
+//				paragraph "The Non-Keypad Exit Delay Message:\n${chimetxt}${theExitMsgNkypd}"
+//			else	
+//				paragraph "The Non-Keypad Exit Delay Message is not defined"
 			if (theEntryMsg)
-				paragraph "The Entry Delay Message:\n${theEntryMsg}"
+				paragraph "The Entry Delay Message:\n${chimetxt}${theEntryMsg}"
 			else	
 				paragraph "The Entry Delay Message is not defined"
 			if (theStartTime>"" && theEndTime>"")
@@ -231,12 +234,12 @@ def pageTwo(error_data)
 	}	
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	log.info "Installed with settings: ${settings}"
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	log.info "Updated with settings: ${settings}"
 
 	unsubscribe()
 	initialize()
@@ -248,11 +251,9 @@ def initialize() {
 
 def TalkerHandler(evt)
 	{
-	log.debug("TalkerHandler entered, event: ${evt.value} ${evt?.data}")
+	logdebug("TalkerHandler entered, event: ${evt.value} ${evt?.data}")
 	def delaydata=evt?.data			//get the delay time 
 	def msgout
-	def nonnouncer=false
-	def chimes=true
 
 //	1.0.3 Nov 4, 2018 check time values for quiet
 	if (theStartTime>"" && theEndTime>"")
@@ -260,35 +261,10 @@ def TalkerHandler(evt)
 		def between = timeOfDayIsBetween(theStartTime.substring(11,16), theEndTime.substring(11,16), new Date(), location.timeZone)
 		if (between)
 			{
-//			log.debug ("it is quiet time")	
+//			logdebug ("it is quiet time")	
 			return false
 			}
 		}
-//	log.debug ("not quiet time")	
-
-//	1.0.3 Nov 4, 2018 Set Chimes sound
-	try 
-		{chimes=theSoundChimes}
-	catch(Exception e)
-		{}
-//	if (chimes)
-//		log.debug "chime on"
-//	else
-//		log.debug "chime off"	
-
-	if (theTTS)
-		{
-		theTTS.find
-			{
-			if (it.typeName != 'LANnouncer Alerter')
-				{
-				nonnouncer=true		
-				return true		//stop searching
-				}
-			else
-				return false
-			}
-		}	
 
 
 	if (evt.value=="entryDelay" && theEntryMsg>"")
@@ -299,14 +275,9 @@ def TalkerHandler(evt)
 			msgout=theEntryMsg
 		if (theTTS)
 			{
-			if (nonnouncer || chimes==false)
-				{theTTS.speak(msgout)}
-			else		
-				{
-				theTTS.speak("@|ALARM=CHIME")
-				theTTS.speak(msgout,[delay: 1800])
-				theTTS.speak("@|ALARM=CHIME", [delay: 5000])
-				}
+			if (theSoundChimes)
+				theTTS.chime()
+			runInMillis(1800, ttsDelay, [data: [tts: msgout]])
 			}	
 		if (theSpeakers)
 			{
@@ -322,14 +293,13 @@ def TalkerHandler(evt)
 			msgout=theExitMsgKypd
 		if (theTTS)
 			{
-			if (nonnouncer || chimes==false)
-				{theTTS.speak(msgout)}
-			else		
+			if (theSoundChimes)
 				{
-				theTTS.speak("@|ALARM=CHIME")
-				theTTS.speak(msgout,[delay: 1800])
-				theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+				theTTS.chime()
+				runInMillis(1800, ttsDelay, [data: [tts: msgout]])
 				}
+			else		
+				{theTTS.speak(msgout)}
 			}
 		if (theSpeakers)
 			{
@@ -337,22 +307,22 @@ def TalkerHandler(evt)
 			}
 		}
 	else
-	if (evt.value=="exitDelayNkypd" && theExitMsgNkypd>"")
+//	if (evt.value=="exitDelayNkypd" && theExitMsgNkypd>"")
+	if (evt.value=="exitDelayNkypd" && theExitMsgKypd>"")
 		{
 		if (delaydata>"")
-			msgout=theExitMsgNkypd.replaceAll("%nn",delaydata)
+			msgout=theExitMsgKypd.replaceAll("%nn",delaydata)
 		else
-			msgout=theExitMsgNkypd
+			msgout=theExitMsgkypd
 		if (theTTS)
 			{
-			if (nonnouncer || chimes==false)
-				theTTS.speak(msgout, [delay: 2000])					//allows Bigtalker to speak armed in away mode msg
-			else		
+			if (theSoundChimes)
 				{
-				theTTS.speak("@|ALARM=CHIME", [delay : 2000])		//allows BigTalker to speak armed in away mode msg
-				theTTS.speak(msgout, [delay: 3800])
-				theTTS.speak("@|ALARM=CHIME", [delay: 8000])
+				theTTS.chime()
+				runInMillis(1800, ttsDelay, [data: [tts: msgout]])
 				}
+			else		
+				{theTTS.speak(msgout)}
 			}
 		if (theSpeakers)
 			{
@@ -366,4 +336,15 @@ def TalkerHandler(evt)
 		if (theSpeakers)
 			{theSpeakers.playTextAndResume(delaydata,theVolume)}
 		}
-	}	
+	}
+
+def ttsDelay(map)
+	{
+	theTTS.speak(map.tts)
+	}
+
+def logdebug(txt)
+	{
+   	if (logDebugs)
+   		log.debug ("${txt}")
+    }		
