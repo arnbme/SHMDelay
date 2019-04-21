@@ -20,17 +20,22 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Apr 21, 2019 v2.2.9AH Version used during beta test release,  needs code cleanup, lots of grunge
+ *	Apr 20, 2019 v2.2.9AH Cleanup some grunge
+ *	Apr 01, 2019 v2.2.9H killed verify version link for now
+ *	Apr 01, 2019 v2.2.9H Use true on device.currentvalue to insure live value, otherwise could be stale
  *	Mar 26, 2019 v2.2.8  Corrected keypad lights not properly see around statement 1034/5  fakeEvt = [value: theMode]
  *	Mar 14, 2019 v2.2.8  Change: Period not saved in Apple IOS, remove it as a phone number delimter
  *	Mar 12, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows in android, nor is saved in IOS?
- *	Mar 03, 2019 v2.2.8  add flag to turn deub messages on, default is off
- *	Mar 03, 2019 v2.2.8  log debugging for exit delay issue
- *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
+ *	Mar 12, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows in android, nor is saved in IOS?
+ *	Mar 03, 2019 v2.2.8  add flag to turn debug messages on, default is off
+ *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 359 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
  *	Jan 05, 2019 V2.2.5  Fixed: iPhone classic phone app crashes when attempting to set 3 character emergency number
  *								remove ,"" selection option						
- *	Nov 30, 2018 V2.2.4  add additional panic subscribe when using RBoy DTH
- *	Nov 30, 2018 V2.2.4  Minor logic change for Iris V3 when testing for 3405-L
+ *	Nov 30, 2018 V2.2.4  not in this version (add additional panic subscribe when using RBoy DTH
+ *	Nov 30, 2018 V2.2.4  not in this version (Minor logic change for Iris V3 when testing for 3405-L
+ *	Nov 24, 2018 V2.2.3H Convert to Hubitat
  *	Nov 19, 2018 V2.2.3  Test Modefix user settings for exit delay in verify version
  *	Nov 19, 2018 V2.2.2  User exit event not running in SHM Delay BuzzerSwitch, modify routine verify_version()
  *	Nov 03, 2018 v2.2.1	 Adjust logic per Rboy suggestions
@@ -123,7 +128,14 @@
  *
  */
 
-include 'asynchttp_v1'
+if (location.hubs[0].id.toString().length() > 5) 
+ 	{
+ 	state.hubType = 'SmartThings'
+	include 'asynchttp_v1'
+	}
+else
+ 	state.hubType = 'Hubitat'
+
 
 definition(
     name: "SHM Delay",
@@ -137,13 +149,13 @@ definition(
     singleInstance: true)
 
 preferences {
-    page(name: "main")
+    page(name: "main", nextPage: "globalsPage")
     page(name: "globalsPage", nextPage: "main")	
 }
 
 def version()
 	{
-	return "2.2.8";
+	return "2.2.9AH";
 	}
 def main()
 	{
@@ -151,6 +163,7 @@ def main()
 		{
 		if (app.getInstallationState() == 'COMPLETE')	//note documentation shows as lower case, but returns upper
 			{  
+//			logdebug "dynamicPage: main"
 			def modeFixChild="Create"
 			def children = getChildApps()
 			children.each
@@ -164,6 +177,7 @@ def main()
 					}
 				}
 			def modeActive=" Inactive"
+			def globalKeypadControl=true
 			if (globalFixMode || globalKeypadControl)
 				{modeActive=" Active"}
 			def fixtitle = modeFixChild + modeActive + " Mode Fix Settings"
@@ -176,17 +190,17 @@ def main()
 				{
 				app(name: "EntryDelayProfile", appName: "SHM Delay Child", namespace: "arnbme", title: "Create A New Delay Profile", multiple: true)
 				}
-			if (globalKeypadControl)
-				{
+//			if (globalKeypadControl)
+//				{
 				section 
 					{
 					app(name: "UserProfile", appName: "SHM Delay User", namespace: "arnbme", title: "Create A New User Profile", multiple: true)
 					}
-				section 
-					{
-					app(name: "SimKypdProfile", appName: "SHM Delay Simkypd Child", namespace: "arnbme", title: "Create A New Sim Keypad Profile", multiple: true)
-					}
-				}	
+//				section 
+//					{
+//					app(name: "SimKypdProfile", appName: "SHM Delay Simkypd Child", namespace: "arnbme", title: "Create A New Sim Keypad Profile", multiple: true)
+//					}
+//				}	
 			section 
 				{
 				app(name: "TalkerProfile", appName: "SHM Delay Talker Child", namespace: "arnbme", title: "Create A New Talker Profile", multiple: true)
@@ -211,24 +225,24 @@ def main()
 			{
 			section 
 				{
-				paragraph "Please review and set global settings, then complete the install by clicking 'Save' above. After the install completes, you may set Delay, User and Modefix profiles"
+				paragraph "Please read the documentation, review and set global settings, then complete the install by clicking 'Save' above. After the install completes, you may set Delay, User and Modefix profiles"
 				}
 			section
     			{
   				href(name: 'toglobalsPage', page: 'globalsPage', title: 'Globals Settings')
 				}	
 			}	
-/*		section
+		section
 			{
 			href (url: "https://community.smartthings.com/t/release-shm-delay-version-2-0/121800",
 			title: "Smartapp Documentation",
 			style: "external")
 			}
-*/		section
+		section
 			{
 			paragraph "SHM Delay Version ${version()}"
 			}
-		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
+//		remove("Uninstall SHM Delay","Warning!!","This will remove the ENTIRE SmartApp, including all profiles and settings.")
 		}
 	}
 
@@ -236,141 +250,73 @@ def globalsPage()
 	{	
 	dynamicPage(name: "globalsPage", title: "Global Settings")
 		{
+//		logdebug "dynamicPage: globalsPage"
 		section 
 			{
 			input "globalDisable", "bool", required: true, defaultValue: false,
 				title: "Disable All Functions. Default: Off/False"
-			input "globalKeypadControl", "bool", required: true, defaultValue: false, submitOnChange: true,
-				title: "A real or simulated Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: Off/False"
-			input "globalIntrusionMsg", "bool", required: false, defaultValue: true,
-				title: "This app issues an intrusion message with name of triggering real sensor? Default: On/True."
-			input (name: "global911", type:"enum", required: false, options: ["911","999","112"],
-				title: "Add 3 digit emergency call number on this app's intrusion message?")
-			input "globalPolice", "phone", required: false, 
-				title: "Include this phone number as a link on this app's intrusion message? Separate multiple phone numbers with a pound sign(#), or semicolon(;)"
-			input "globalDuplicateMotionSensors", "bool", required: true, defaultValue: false, 
-				title: "I have the same motion sensor defined in multiple delay profiles. Stop false motion sensor triggered alarms by cross checking for sensor in other delay profiles.\nDefault Off/False"
-			if (globalKeypadControl)
+			input "globalKeypadControl", "bool", required: true, defaultValue: true, submitOnChange: true,
+			title: "A real or simulated Keypad is used to arm and disarm Smart Home Monitor (SHM). Default: On/True"
+			def actions = location.helloHome?.getPhrases()*.label
+				input "globalKeypadDevices", "device.CentralitexKeypad", required: false, multiple: true, submitOnChange: true,
+					title: "Real Keypads used to arm and disarm SHM"
+			input "globalPanic", "bool", required: true, defaultValue: true,
+				title: "Keypad Panic Key when available is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
+			input "globalPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
+				title: "Log pin entries. Default: On/True"
+			if (globalPinMsgs)
 				{
-				input "globalFixMode", "bool", required: true, defaultValue: true,
-					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm state\nthen set keypad status and lights to match system.\nDefault: On/True"
-				}
-			else	
-				{
-				input "globalFixMode", "bool", required: true, defaultValue: false,
-					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm status.\nDefault: Off/False"
-				}
-//			input "globalKeypad", "bool", required: true, defaultValue: false,		//deprecated Was used with Version1
-//				title: "The upgraded Keypad module is installed Default: Off/False"
-			input "globalTrueNight", "bool", required: true, defaultValue: false, 
-				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
-			if (globalKeypadControl)
-				{
-				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
-					title: "I am using the RBoy Apps Keypad DTH"
-				def actions = location.helloHome?.getPhrases()*.label
-				actions?.sort()
-				if (globalRboyDth)
+				input "globalPinLog", "bool", required: false, defaultValue:true,
+					title: "Log Pin to Notifications?"
+				if (location.contactBookEnabled)
 					{
-					input "globalKeypadDevices", "device.EnhancedZigbeeKeypadLock", required: false, multiple: true, submitOnChange: true,
-						title: "Real Keypads used to arm and disarm SHM"
+					input("globalPinRecipients", "contact", title: "Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
+					input "globalPinPush", "bool", required: false, defaultValue:false,
+						title: "Send Pin Push Notification?"
 					}
 				else	
 					{
-					input "globalKeypadDevices", "device.CentraliteKeypad", required: false, multiple: true, submitOnChange: true,
-						title: "Real Keypads used to arm and disarm SHM"
+					input "globalPinPush", "bool", required: false, defaultValue:true,
+						title: "Send Pin Push Notification?"
 					}
-				if (globalKeypadDevices && globalKeypadDevices.size() > 1)
-					{
-					def kpnm
-					globalKeypadDevices.each
-						{
-						kpnm=it.displayName.replaceAll(" ","_")	
-						input "globalKeypadExitDelay${kpnm}", "number", required: true, range: "0..90", defaultValue: 30,
-							title: "Device: ${kpnm}, Exit delay seconds when arming with a delay from this keypad. range 0-90, default:30"
-						}	
-					}
-				else
-					{
-					input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
-						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
-					}
-				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
-					title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
-				input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
-				input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Night executes Routine. Default: Good Night!"
-				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
-					title: "Keypad Away/On executes Routine. Default: Goodbye!"
-				input "globalPanic", "bool", required: true, defaultValue: true,
-					title: "Iris Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
-//				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
-//					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
-//				input "globalBadpinsIntrusion", "number", required: true, range: "0..10", defaultValue: 4,
-//					title: "(Future enhancement) Create intrusion alert after how many invalid pin code entries. 0 = disabled, range: 1-10, default: 4"
-				input "globalPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
-					title: "Log pin entries. Default: On/True"
-				if (globalPinMsgs)
-					{
-					input "globalPinLog", "bool", required: false, defaultValue:true,
-						title: "Log Pin to Notifications?"
-					if (location.contactBookEnabled)
-						{
-						input("globalPinRecipients", "contact", title: "Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
-						input "globalPinPush", "bool", required: false, defaultValue:false,
-							title: "Send Pin Push Notification?"
-						}
-					else	
-						{
-						input "globalPinPush", "bool", required: false, defaultValue:true,
-							title: "Send Pin Push Notification?"
-						}
-					input "globalPinPhone", "phone", required: false, 
-						title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
-					}
-				input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
-					title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
-				if (globalBadPinMsgs)
-					{
-					input "globalBadPinLog", "bool", required: false, defaultValue:true,
-						title: "Log Bad Pins to Notifications?"
-					if (location.contactBookEnabled)
-						{
-						input("globalBadPinRecipients", "contact", title: "Bad Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
-						input "globalBadPinPush", "bool", required: false, defaultValue:false,
-							title: "Send Bad Pin Push Notification?"
-						}
-					else	
-						{
-						input "globalBadPinPush", "bool", required: false, defaultValue:true,
-							title: "Send Bad Pin Push Notification?"
-						}
-					input "globalBadPinPhone", "phone", required: false, 
-						title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
-					}
-
-				input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
-					title: "(Optional!) Contacts must be closed prior to arming Away from a Keypad"
-				if (globalAwayContacts)
-					{
-					input (name: "globalAwayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
-						title: "How to notify contact is open, arming Away")
-					}
-				input "globalStayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple:true,
-					title: "(Optional!) Contacts must be closed prior to arming Stay from a Keypad."
-				if (globalStayContacts)
-					{
-					input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
-						title: "How to notify contact is open arming Stay")
-					}
+				input "globalPinPhone", "phone", required: false, 
+					title: "Send Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
 				}
-			input "globalSimUnique", "bool", required: false, defaultValue:false,
-				title: "Simulated sensors must be unique? Default: Off/False allows using a single simulated sensor."
-			input "globalTrueEntryDelay", "bool", required: true, defaultValue: false,
-				title: "True Entry Delay: This is a last resort when adding motion sensors to delay profile does not stop Intrusion Alert. AlarmState Away and Stay with an entry delay time, ignore triggers from all other sensors when Monitored Contact Sensor opens. Default: Off/False"
-			input "globalMultipleMotion", "bool", required: true, defaultValue: true,
-				title: "Allow Multiple Motion Sensors in Delay Profile. Default: On/True" 
+			input "globalBadPinMsgs", "bool", required: false, defaultValue: true, submitOnChange: true,
+				title: "Log invalid keypad entries, pins not found in a User Profile Default: On/True"
+			if (globalBadPinMsgs)
+				{
+				input "globalBadPinLog", "bool", required: false, defaultValue:true,
+					title: "Log Bad Pins to Notifications?"
+				if (location.contactBookEnabled)
+					{
+					input("globalBadPinRecipients", "contact", title: "Bad Pin Notify Contacts (When used ST system forces send to notification log, so set prior setting to false)",required:false,multiple:true) 
+					input "globalBadPinPush", "bool", required: false, defaultValue:false,
+						title: "Send Bad Pin Push Notification?"
+					}
+				else	
+					{
+					input "globalBadPinPush", "bool", required: false, defaultValue:true,
+						title: "Send Bad Pin Push Notification?"
+					}
+				input "globalBadPinPhone", "phone", required: false, 
+					title: "Send Invalid Bad Pin text message to this number. For multiple SMS recipients, separate phone numbers with a pound sign(#), or semicolon(;)"
+				}
+
+			input "globalAwayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple: true,
+				title: "(Optional!) Contact Sensors that must be closed prior to arming Away from a Keypad"
+			if (globalAwayContacts)
+				{
+				input (name: "globalAwayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+					title: "How to notify contact is open, arming Away")
+				}
+			input "globalStayContacts", "capability.contactSensor", required: false, submitOnChange: true, multiple:true,
+				title: "(Optional!) Contact sensors that must be closed prior to arming Home (Stay) or Night from a Keypad."
+			if (globalStayContacts)
+				{
+				input (name: "globalStayNotify", type:"enum", required: false, options: ["Notification log", "Push Msg", "SMS","Talk"],multiple:true,
+					title: "How to notify contact is open arming Stay")
+				}
 			}
 		}
 	}	
@@ -388,24 +334,21 @@ def updated() {
 
 def initialize()
 	{
-	if (globalKeypadControl && !globalDisable)
+	if (!globalDisable)
 		{
 		subscribe(globalKeypadDevices, 'codeEntered',  keypadCodeHandler)
-		subscribe (location, "mode", keypadModeHandler)
+//		subscribe (location, "mode", keypadModeHandler)
 		if (globalPanic)
 			{
-			if (globalRboyDth)
-				subscribe (globalKeypadDevices, "button.pushed", keypadPanicHandler)
-			else	
-				subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
-			}
+		    subscribe (globalKeypadDevices, "contact.open", keypadPanicHandler)
+		    }
 		globalKeypadDevices?.each
 			{
 			if (it.hasCommand("disableInvalidPinLogging"))
 				it.disableInvalidPinLogging(true)
 			}
 		}
-	subscribe(location, "alarmSystemStatus", verify_version)
+	subscribe(location, "hsmStatus", verify_version)
 	verify_version("dummy_evt")
 	}	
 
@@ -440,10 +383,11 @@ Away					Away		away			GoodBye!	Away
 def keypadCodeHandler(evt)
 	{
 //	User entered a code on a keypad	
-	if (!globalKeypadControl || globalDisable)
+	logdebug "keypadCodeHandler entered"
+	if (globalDisable)
 		{return false}			//just in case
 	def keypad = evt.getDevice();
-//	logdebug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
+	logdebug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
 	def codeEntered = evt.value as String				//the entered pin
 	def modeEntered = evt.data as Integer				//the selected mode off(0), stay(1), night(2), away(3)
 	def itext = [dummy: "dummy"]						//external find it data or dummy map to fake it when pin not found										
@@ -456,7 +400,7 @@ def keypadCodeHandler(evt)
 			keypad.sendInvalidKeycodeResponse()
 		return false
 		}
-//	def currentarmMode = keypad.currentValue('armMode')
+//	def currentarmMode = keypad.currentValue('armMode',true)
 //	logdebug("Delayv2 codeentryhandler searching user apps for keypad ${keypad.displayName} ${evt.data} ${evt.value}")
 	def userName=false;
 	def badPin=true;
@@ -467,14 +411,14 @@ def keypadCodeHandler(evt)
 	def damap=[dummy: "dummy"]				//dummy return map for Routine and Piston processing
 	
 //	Try to find a matching pin in the pin child apps	
-//	def userApps = getChildApps()		//gets all completed child apps Sep 20, 2018
-	def userApps = findAllChildAppsByName('SHM Delay User')
+	def userApps = getChildApps()		//gets all completed child apps Sep 20, 2018
+//	def userApps = findAllChildAppsByName('SHM Delay User')
 	userApps.find 	
 		{
-//		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	Sep 20, 2018
-		if (it.getInstallationState()=='COMPLETE' && it.theuserpin == codeEntered)	
+		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	
+//		if (it.getInstallationState()=='COMPLETE' && it.theuserpin == codeEntered)	fails in HE
 			{
-//			logdebug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
+			logdebug ("found the pin ${it.getName()} ${it.theuserpin} ${it.theusername} ")
 //			verify burn cycles
 			itext=it										//save for use outside of find loop
 			if (it.themaxcycles > 0)						//check if pin is burned
@@ -727,14 +671,18 @@ def keypadCodeHandler(evt)
 			if (globalAwayContacts)
 				{
 				if (!checkOpenContacts(globalAwayContacts, globalAwayNotify, keypad))
+					{
 					return
+					}
 				}
 			}
 		else
 		if (globalStayContacts)
 			{
 			if(!checkOpenContacts(globalStayContacts, globalStayNotify, keypad))
+				{
 				return
+				}
 			}	
 		}	
 
@@ -776,31 +724,36 @@ def keypadCodeHandler(evt)
 		
 	if (modeEntered > 0 && internalExitDelay > 0)
 		{
-		mf=findChildAppByName('SHM Delay ModeFix')
+		mf = getChildApps()		//gets all completed child apps Sep 20, 2018
+//		mf=findChildAppByName('SHM Delay ModeFix')
 //		logdebug "${mf.getInstallationState()} ${mf.version()}"
-		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
+		mf.find 	
 			{
-			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
-			daexitdelay = mf."${am}"
-//			logdebug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
+			if (it.getName()=="SHM Delay ModeFix" && it.version() > '0.1.4')
+				{
+				am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
+				daexitdelay = it."${am}"
+//				logdebug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
+				}
+			else
+			if (modeEntered==3)
+				{daexitdelay=true}
 			}
-		else
-		if (modeEntered==3)
-			{daexitdelay=true}
-		}	
+		}
 	if (daexitdelay)
 		{
 		logdebug "entered exit delay for $am delay: ${internalExitDelay}"
-		globalKeypadDevices.each
+/*		globalKeypadDevices.each
 			{
 			it.setExitDelay(internalExitDelay)
 			}
 		runIn(internalExitDelay, execRoutine, aMap)
-		def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
+*/		execRoutine(aMap.data)			//set away to run simultaneous with HSM delay
+/*		def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
 			displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
 			data: internalExitDelay]	
 		sendLocationEvent(locevent)
-		qsse_status_mode(false,"Exit%20Delay")
+*/		qsse_status_mode(false,"Exit%20Delay")
 		}
 	else
 		{execRoutine(aMap.data)}
@@ -847,12 +800,13 @@ def acknowledgeArmRequest(armMode,keypad)
 		pinstatus="Rejected"
 	else
 		pinstatus ="Accepted"
-	def uri='https://www.arnb.org/shmdelay/qsse.php'
-	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
+/*	def uri='https://www.arnb.org/shmdelay/qsse.php'
+
+	def simKeypadDevices = getChildApps()		//gets all completed child apps Sep 20, 2018
+//	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
 	simKeypadDevices.each
 		{
-		
-		if (it.simkeypad.name == keypad.name)
+		if (it.getName()=="SHM Delay Simkypd Child" && it.simkeypad.name == keypad.name)
 			{
 			uri+='?i='+it.getAtomic('accessToken').substring(0,8)	
 			uri+='&p='+ pinstatus
@@ -866,11 +820,12 @@ def acknowledgeArmRequest(armMode,keypad)
 				}
 			}
 		}	
-	}
+*/	}
 
 def qsse_status_mode(status,mode)
 //	store the status of the ST status and mode to the shmdelay_oauth db table for all simulated keypads
 	{
+	return false				//bypass in HE until needed Apr 11, 2019
 	def st_status=status
 	if (!st_status)
 		st_status = location.currentState("alarmSystemStatus").value
@@ -916,30 +871,34 @@ def execRoutine(aMap)
 //											  not ideal prefer alarmtime but its before new alarm time is set
 	def kMode=false							//new keypad light setting, waiting for mode to change is a bit slow
 	def kbMap = [value: armMode, source: "keypad"]		
-	logdebug "execRoutine aMap: ${aMap} kbMap: ${kbMap}"
+	logdebug "execRoutine aMap: ${aMap} kbMap: ${kbMap} armMode: ${armMode}"
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalOff)
-		}
-	else
-	if (armMode == 'Stay')
-		{
-		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalStay)
-		}
-	else
-	if (armMode == 'Night')
-		{
-		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalNight)
+//		setLocationMode(globalOff)	//set the mode
+		sendLocationEvent(name: "hsmSetArm", value: "disarm")
 		}
 	else
 	if (armMode == 'Away')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalAway)
+//		setLocationMode(globalAway)
+		sendLocationEvent(name: "hsmSetArm", value: "armAway")
 		} 
+	else
+	if (armMode == 'Stay')
+		{
+		keypadLightHandler(kbMap)
+//		setLocationMode(globalStay)
+		sendLocationEvent(name: "hsmSetArm", value: "armHome")
+		}
+	else
+	if (armMode == 'Night')
+		{
+		keypadLightHandler(kbMap)
+//		setLocationMode(globalNight)
+		sendLocationEvent(name: "hsmSetArm", value: "armNight")
+		}
 	atomicState.kMap=kMap					//SHM Delay Child DoorOpens and MotionSensor active functions
 	}
 
@@ -949,6 +908,9 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 		{return false}			//just in case
 	def	theMode=evt.value		//Used to set the keypad button/icon lights		
 	def theStatus=false			//used to set SHM Alarm State
+	def heStatus=false			//used to compare to hsmStatus (Alarm State)
+	def heSetArm=false			//used to set hsmstatus 
+/*	deprecated in HE done by HSM Apr 16, 2019		
 	if (globalFixMode)			//if global fix mode use data allowing for user defined modes
 		{
 		def it=findChildAppByName('SHM Delay ModeFix')
@@ -959,50 +921,52 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			{
 			theStatus='off'
 			theMode='Home'
+			heStatus='disarmed'
+			heSetArm='disarm'
 			}
 		else
 		if (it.awayDefault == theMode)
 			{
 			theStatus='away'
 			theMode='Away'
+			heStatus='armedAway'
+			heSetArm='armAway'
 			}
 		else
-//		if (it.stayDefault == theMode)		2.0.4 Apr 24, 2018 commented out, handled to stayModes.contains below
-//			{
-//			theStatus='stay'
-//			theMode='Night'
-//			}
-//		else 
 		if (it.offModes.contains(theMode))
 			{
 			theStatus='off'
 			theMode='Home'
+			heStatus='disarmed'
+			heSetArm='disarm'
 			}
 		else 
 		if (it.awayModes.contains(theMode))
 			{
 			theStatus='away'
 			theMode='Away'
+			heStatus='armedAway'
+			heSetArm='armAway'
 			}
 		else 
 		if (it.stayModes.contains(theMode))
 			{
 			theStatus='stay'
-//			if (theMode!="Stay")		//2.0.3 Apr 24, 2018 fix keypad light not changing from Night to Stay on 3400 keypad 
-			if (it."stayLight${theMode}")	//2.0.4 Apr 24, 2018 select Icon light from User set Modefix Icon light data 
-				{
-				theMode=it."stayLight${theMode}"
-//				logdebug "Stay mode ${theMode} picked from settings"
-				}
-			else	
-				{
-//				logdebug "Stay mode default night mode used"
-				theMode='Night'
-				}
+			theMode='Stay'
+			heStatus='armedStay'
+			heSetArm='armStay'
+			}
+		else
+		if (it.nightModes.contains(theMode))
+			{
+			theStatus='night'
+			theMode='Night'
+			heStatus='armedNight'
+			heSetArm='armNight'
 			}
 		}
 	logdebug "keypadModeHandler GlobalFix:${globalFixMode} theMode: $theMode theStatus: $theStatus"
-
+/*
 	if (globalKeypadControl)			//when we are controlling keypads, set lights
 		{
 		if (theMode=='Home' || theMode=='Away' || theMode=='Night' || theMode=='Stay')
@@ -1040,15 +1004,18 @@ def keypadModeHandler(evt)		//react to all SHM Mode changes
 			logdebug "keypadModeHandler mode $theMode cannot be used to set the keypad lights"
 			}
 		}	
-		
+/*	deprecated in HE done by HSM Apr 16, 2019	
 //	When SHM alarm state does not match the requested SHM alarm state, change it
 	if (theStatus)
 		{
-		def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
-		def alarmstatus = alarm.value
-		if (alarmstatus != theStatus)
-			setSHM(theStatus)
+//		def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
+//		def alarmstatus = alarm.value
+		def alarmstatus = location.hsmStatus	//get HE alarm status
+		if (alarmstatus != heStatus && heSetArm)
+//			setSHM(theStatus)
+			sendLocationEvent(name: "hsmSetArm", value: heSetArm)
 		}	
+*/
 	qsse_status_mode(theStatus,theMode)
 	}
 
@@ -1057,6 +1024,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 	def	theMode=evt.value						//This should be a valid SHM Mode
 	def simkeypad
 	logdebug "keypadLightHandler entered ${evt} ${theMode} source: ${evt.source}"
+/*  Simulated keypad not implemnted in HE
 	def simKeypadDevices=findAllChildAppsByName('SHM Delay Simkypd Child')
 	simKeypadDevices.each
 		{
@@ -1070,7 +1038,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 			keypadLighton(evt,theMode,simkeypad)
 			}
 		}	
-	globalKeypadDevices.each
+*/	globalKeypadDevices.each
 		{ keypad ->
 			keypadLighton(evt,theMode,keypad)
 		}
@@ -1078,7 +1046,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 
 def	keypadLighton(evt,theMode,keypad)
 	{
-//	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
 	def currkeypadmode=""
 	if (theMode == 'Home')					//Alarm is off
 		{keypad.setDisarmed()}
@@ -1086,31 +1054,18 @@ def	keypadLighton(evt,theMode,keypad)
 	if (theMode == 'Stay')
 		{
 		keypad.setArmedStay()				//lights Partial light on Iris, Stay Icon on Xfinity/Centralite
-//			deprecated on Apr 23, 2018		
-//			if (evt.source !="keypad" && globalTrueNight && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
-//				{keypad.setArmedNight()}
-//			else	
-//				{keypad.setArmedStay()}				//lights Partial light on Iris
-//			deprecated on Apr 23, 2018 2.0.2a
-//			if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" && currkeypadmode =="armedStay")
-//				{}
-//			else
-//				{keypad.setArmedStay()}				//lights Partial light on Iris
 		}
 	else
 	if (theMode == 'Night')					//Iris has no Night light set Partial on	
 		{
-//		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
-//		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
-//		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
-		if (['3400','3400-G'].contains(keypad?.getModelName()) ||
+		if (['3400','3400-G'].contains(keypad?.data.model) ||
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
 				{keypad.setArmedNight()}
 			else
 				{
-				currkeypadmode = keypad?.currentValue("armMode")
+				currkeypadmode = keypad?.currentValue("armMode",true)
 				logdebug "keypadLightHandler LightRequest: ${theMode} model: ${keypad?.getModelName()} keypadmode: ${currkeypadmode}"
 				if (currkeypadmode =="armedStay")
 					{
@@ -1120,8 +1075,11 @@ def	keypadLighton(evt,theMode,keypad)
 					{keypad.setArmedNight()}
 				}
 			}	
-		else	
-			{keypad.setArmedStay()}
+
+		else
+			{
+			keypad?.setArmedStay()
+			}
 		}	
 	else
 	if (theMode == 'Away')					//lights ON light on Iris
@@ -1130,17 +1088,18 @@ def	keypadLighton(evt,theMode,keypad)
 
 def keypadPanicHandler(evt)
 	{
-	if (!globalKeypadControl || globalDisable || !globalPanic)
+	logdebug "keypadPanicHandler entered, ${evt}" 
+	if (globalDisable || !globalPanic)
 		{return false}			//just in case
-	def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
-	def alarmstatus = alarm.value
-	def keypad=evt.getDevice()		//set the keypad name
+	def alarmstatus = location.hsmStatus	//get HE alarm status	
+	def keypad=evt.getDevice()				//set the keypad name
 	def panic_map=[data:[cycles:5, keypad: keypad.name]]
-	logdebug "the initial panic map ${panic_map} ${keypad.name}" 
-	if (alarmstatus == "off")
+	logdebug "keypadPanicHandler status alarmstatus: ${alarmstatus} panic map: ${panic_map} keypad: ${keypad.name}" 
+	if (alarmstatus.substring(0,5) != 'armed')
 		{
-//		location.helloHome?.execute(globalAway)	//set alarm on deprecated Mar 20, 2018
-		setSHM('away')							//set alarm on in the fastest possible way I know
+		unschedule(execRoutine)				//Kill any delayed arm/disarm requests 
+		setLocationMode('Night')
+		sendLocationEvent(name: "hsmSetArm", value: "armNight")
 		runIn(1, keypadPanicExecute,panic_map)
 		}
 	else
@@ -1155,9 +1114,8 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 **	Limit time to 5 cycles around 9 seconds of waiting maximum
 */		
 	{
-	def alarm = location.currentState("alarmSystemStatus")	//get ST alarm status
-	def alarmstatus = alarm.value
-	if (alarmstatus == "off")
+	def alarmstatus = location.hsmStatus	//get HE alarm status
+	if (alarmstatus.substring(0,5) != 'armed')
 		{
 		logdebug "keypadPanicExecute entered $panic_map"
 		if (panic_map.cycles > 1)
@@ -1208,7 +1166,8 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 			{
 			logdebug "keypadPanicExecute found Delay profile"
 			delayApp=true		
-			if (alarmstatus == "off")
+			if (alarmstatus.substring(0,5) != 'armed')
+
 				{
 				message+=" System did not arm in 10 seconds, unable to issue Panic intrusion"
 				it.doNotifications(message)		//issue messages as per child profile
@@ -1218,7 +1177,8 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 				it.doNotifications(message)		//issue messages as per child profile
 				it.thesimcontact.close()		//trigger an intrusion		
 				it.thesimcontact.open()
-				it.thesimcontact.close([delay: 4000])
+//				it.thesimcontact.close([delay: 4000])	//delay not available in HE
+				it.thesimcontact.close()
 				qsse_status_mode(false,"**Panic**")
 
 				}
@@ -1235,7 +1195,7 @@ def keypadPanicExecute(panic_map)						//Panic mode requested
 	}
 
 //	Directly set the SHM alarm status input must be off, away or stay	
-def setSHM(state)
+/*def setSHM(state)
 	{
 	if (state=='off'|state=='away'||state=='stay')
 		{
@@ -1244,7 +1204,7 @@ def setSHM(state)
     	sendLocationEvent(event)
     	}
     }
-
+*/
 
 /*
 atempted to use this to trigger panic but it does not fire the subscribed event
@@ -1272,14 +1232,15 @@ def getResponseHandler(response, data)
 	
 def verify_version(evt)		//evt needed to stop error whne coming from subscribe to alarm change
 	{
-	logdebug "Entered Verify Version. evt data ${evt.getProperties().toString()}"	
+	logdebug "verify_version entered ${evt.getProperties().toString()}"
+//	logdebug "evt data ${evt.getProperties().toString()}"	
 	def uri='https://www.arnb.org/shmdelay/'
 //	uri+='?lat='+location.latitude					//Removed May 01, 2018 deemed obtrusive	
 //	uri+='&lon='+location.longitude
-	uri+='?hub='+location.hubs[0].encodeAsBase64()   //May have quotes and other stuff 
-	uri+='&zip='+location.zipCode
-	uri+='&cnty='+location.country
-    uri+='&eui='+location.hubs[0].zigbeeEui
+//	uri+='?hub='+location.hubs[0].encodeAsBase64()   //May have quotes and other stuff 
+//	uri+='&zip='+location.zipCode
+//	uri+='&cnty='+location.country
+//  uri+='&eui='+location.hubs[0].zigbeeEui
 	def childApps = getChildApps()		//gets all completed child apps
 	def vdelay=version()
 	def vchild=''
@@ -1332,7 +1293,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 			return false
 			}	
 		}
-	uri+="&p=${vdelay}"
+/*	uri+="&p=${vdelay}"
     uri+="&c=${vchild}"
     uri+="&m=${vmodefix}"
     uri+="&u=${vuser}"
@@ -1348,7 +1309,7 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		logdebug "Execution failed ${e}"
 		}
 	qsse_status_mode(evt.value,false)
-
+*/
 //	Moved exitdelay non-keypad talk message to here from SHM Delay Child, V2.1.9 Oct 15, 2018
 	def vaway=evt?.value
 //	logdebug "Talker setup1 $vchildmindelay $vtalk $vaway" 
@@ -1357,7 +1318,6 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 //	if (vtalk=='')			//talker profile not defined, return
 //		return false
 
-	logdebug "vchildmindelay: ${vchildmindelay}"
 	if (vchildmindelay < 1)		//a nonkeypad time was set to 0
 		return false;
 
@@ -1389,19 +1349,18 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		displayed: true, descriptionText: "Issue exit delay talk event", linkText: "Issue exit delay talk event",
 		data: vchildmindelay]
 
-	logdebug "Talker setup2 $vchildmindelay $vtalk" 
-	def alarm = location.currentState("alarmSystemStatus")
-	def lastupdt = alarm?.date.time
-	def alarmSecs = Math.round( lastupdt / 1000)
+//	logdebug "Talker setup2 $vchildmindelay $vtalk" 
+//	def alarm = location.currentState("alarmSystemStatus")
+//	def lastupdt = alarm?.date.time
+	def myEvents = getLocationEventsSince("hsmStatus", new Date() - 30, [max:1])
+	def alarmSecs = Math.round( myEvents[0].unixTime / 1000)
 
 //	get current time in seconds
-	def currT = now()
-	def currSecs = Math.round(currT / 1000)	//round back to seconds
+	def currSecs = Math.round(now() / 1000)	//round back to seconds
 	def kSecs=0					//if defined in if statment it is lost after the if
 	def kMap
 	def kduration
-
-	logdebug "Talker fields $kSecs $alarmSecs $vchildmindelay" 
+	def globalKeypadControl=true
 	if (globalKeypadControl)
 		{
 		kMap=atomicState['kMap']	//no data returns null
@@ -1423,7 +1382,6 @@ def verify_version(evt)		//evt needed to stop error whne coming from subscribe t
 		}	
 	else	
 		{
-		logdebug "sending location event nonkeypad arming"
 		sendLocationEvent(locevent)
 		}
 
@@ -1639,7 +1597,7 @@ def doBadPinNotifications(localmsg, it)
 def checkOpenContacts (contactList, notifyOptions, keypad)
 	{
 	def contactmsg=''
-//	logdebug "contact list entered $contactList $notifyOptions $keypad"
+	logdebug "checkOpenContacts entered $contactList $notifyOptions $keypad"
 	contactList.each
 		{
 //		logdebug "${it} ${it.currentContact}"
@@ -1647,8 +1605,10 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 			{
 			if (contactmsg == '')
 				{
-				if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
-					keypad.sendInvalidKeycodeResponse()
+//				if (!globalRboyDth)		//Nov 3, 2018 rBoy DTH already issues the acknowledgement
+//					keypad.sendInvalidKeycodeResponse()
+				keypad.beep(2)
+				keypad.acknowledgeArmRequest(4)				//always issue badpin very long beep
 				contactmsg = 'Arming cancelled. Close '+it.displayName
 				}
 			else
@@ -1694,5 +1654,9 @@ def logdebug(txt)
 	{
    	if (logDebugs)
    		log.debug ("${txt}")
+    }
+def sendNotificationEvent(txt)				//ST sendNotificationEvent command not supported in HE
+	{
+	log.trace ("${txt}")
     }
 	
