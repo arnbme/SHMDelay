@@ -352,7 +352,8 @@ private getBatteryResult(rawValue) {
 		descriptionText = "${linkText} battery was ${result.value}% $volts volts"
 		result.descriptionText = descriptionText
 		logdebug "$result"
-        result.value=rawValue        }
+//      result.value=rawValue
+		}
 //	sendNotificationEvent "${result.descriptionText}"
 //	sendNotificationEvent (descriptionText)
 	return result
@@ -360,9 +361,7 @@ private getBatteryResult(rawValue) {
 
 private getTemperature(value) {
 	def celcius = Integer.parseInt(value, 16).shortValue() / 100
-	float  temp = Integer.parseInt(value,16)/100
-	temp = (temp > 100) ? (temp - 655.35) : temp
-	logdebug "getTemperature entered: celcius: ${celcius} temp: ${temp} value: ${value} scale: ${getTemperatureScale()}"
+//	log.debug "Celcius: $celcius Farenheit: ${celsiusToFahrenheit(celcius) as Integer}"
 	if(getTemperatureScale() == "C"){  
 		return celcius
 	} else {
