@@ -428,11 +428,11 @@ def pageTwoVerify() 				//edit page one info, go to pageTwo when valid
 				}	
 			}
 		}	
-	if (theentrydelay < 1 && theexitdelay < 1)
+/*	if (theentrydelay < 1 && theexitdelay < 1)
 		{
 		error_data+="Illogical condition: entry and exit delays are both zero\n\n"
 		}	
-	if (error_data!="")
+*/	if (error_data!="")
 		{
 		state.error_data=error_data.trim()
 		pageTwo()
