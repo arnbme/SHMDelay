@@ -47,8 +47,8 @@ metadata {
 		capability "Lock Codes"
 		capability "Tamper Alert"
 		capability "Tone"
-		capability "button"
-        capability "polling"
+//		capability "button"
+//      capability "polling"
 //      capability "Contact Sensor"
 		
 		attribute "armMode", "String"
