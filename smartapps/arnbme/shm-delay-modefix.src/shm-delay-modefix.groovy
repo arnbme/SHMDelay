@@ -20,8 +20,8 @@
  *
  *	Apr 20, 2019 	V0.1.8AH Move sendevent for arm and disarm message here, keypad control in one place
  *	Apr 20, 2019 	V0.1.8AH Move sendevent for exit message here, handle double arming issue with AtomicState
- *	Apr 17, 2019 	V0.1.8H Add code to run system off HSM modes, caused double away arming
- *								fixed with logic on mode change, mode change to armstate done with HSM
+ *	Apr 17, 2019 	V0.1.8H Add code to run system off HSM armStates, caused double armingAway state, double TTS
+ *								fixed using atomicState to track hsmState
  *								This module does armstate to mode change.
  *								Note issuing mode change causes a second armingMode, this is a HE BUG
  *	Apr 16, 2019 	V0.1.8H Modified: Add third HSM armed state
