@@ -12,6 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Apr 22, 2019 changed battery back to % from volts for users. Temperature is still very wrong 
  *  Mar 31, 2019 routine disarm and others issued multiple times. fixed in other modules 
  *  Mar 31, 2019 routine disarm threw an error caused by HE sending a delay value, add delay parm that is ignored
  *  Mar 31, 2019 deprecate Sep 20, 2018 change, HE should be fast enough for proper acknowledgements
