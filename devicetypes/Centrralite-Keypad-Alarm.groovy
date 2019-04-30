@@ -17,7 +17,7 @@
  *							When Panic entered, internally issue siren command
  */
 metadata {
-	definition (name: "Centralite Keypad Alarm", namespace: "mitchpond", author: "Mitch Pond") {
+	definition (name: "Centralite Keypad", namespace: "mitchpond", author: "Mitch Pond") {
 
 		capability "Alarm"
 		capability "Battery"
@@ -121,7 +121,10 @@ metadata {
         }
         
         standardTile("beep", "device.beep", decoration: "flat", width: 2, height: 2) {
-            state "default", action:"tone.beep", icon:"st.secondary.beep", backgroundColor:"#ffffff"
+            state "default", action:"tone.beep", icon:"st.secondary.beep", backgroundColor:"#ffffff",label: "Beep"
+        }
+        standardTile("siren", "device.alarm", decoration: "flat", width: 2, height: 2) {
+            state "default", action:"alarm.siren", icon:"st.secondary.beep", backgroundColor:"#ffffff", label: "Alarm"
         }
         valueTile("battery", "device.battery", decoration: "flat", width: 2, height: 2) {
             state "battery", label:'${currentValue}% battery', unit:""
@@ -137,7 +140,7 @@ metadata {
         }
 
         main (["keypad"])
-        details (["keypad","motion","tamper","Panic","Mode","beep","refresh","battery"])
+        details (["keypad","motion","tamper","Panic","Mode","beep","siren","refresh","battery"])
     }
 }
 
@@ -549,6 +552,9 @@ def off()
 	}
 def siren()
 	{
+/*	The hardware command does not work on a Centralite 3400 and unable to get device.data.model here in ST
+ *	want to sound the beep for these devices
+ */
     List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
     			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 	cmds
