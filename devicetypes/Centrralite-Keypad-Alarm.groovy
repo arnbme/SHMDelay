@@ -12,10 +12,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Apr 29, 2019 Arn Burkhoff Updated siren and off commands
  *  Apr 29, 2019 Arn Burkhoff added commands setExitNight setExitStay, capability Alarm.
- *  						both command does not work when attempting to issue strobe and siren event with a delay
- *							decided to just go with sound on both
- *							When Panic entered, internally issue both command, but system reissues it. Maybe good for ST
+ *							When Panic entered, internally issue siren command
  */
 metadata {
 	definition (name: "Centralite Keypad Alarm", namespace: "mitchpond", author: "Mitch Pond") {
@@ -372,7 +371,7 @@ def motionOFF() {
 def panicContact() {
 	logdebug "--- Panic button hit"
     sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true)
-    both()
+    siren()
     runIn(3, "panicContactClose")
 }
 
@@ -542,17 +541,19 @@ def setExitStay(delay) {
 def both()
 	{
 	siren()
-//	runIn(2,"strobe")		//no matter what I tried could not get siren and strobe to work together,
-//								works from device screen using separate commands, choose sound over blinking
 	}
 def off()
 	{
-	setDisarmed()
+    List cmds = ["raw 0x501 {19 01 04 00 00 01 01}",
+    			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
+	cmds
+//	setDisarmed()
 	}
-def siren(dummytime=0)		//needed if SHM sends a duration, ignore it
+def siren()
 	{
-	def secs = sirenSecs as Integer
-	sendRawStatus(4, secs)	//issue alarm command sounds the same as beep		
+    List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
+    			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
+	cmds
 	}
 def strobe() 
 	{
