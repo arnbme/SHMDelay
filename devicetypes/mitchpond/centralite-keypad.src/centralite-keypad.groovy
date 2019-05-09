@@ -12,7 +12,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *  May 08, 2019 Arn Burkhoff createEvent and sendEvent ignored by St Platform if data is specified
+ *  May 09, 2019 Arn Burkhoff undo changes to panic message at 193 and setModeHelper they are OK
+ *  May 08, 2019 Arn Burkhoff createEvent and sendEvent ignored by St Platform if data not in map format is specified
  *							  Thanks to bamarayne for the suggested solution
  *							  In createCodeEntryEvent changed createEvent
  *							  In panic message processing change createEvent around statement 193	
@@ -189,8 +190,7 @@ def parse(String description) {
                 	motionON()
 				}
                 else if (message?.command == 0x04) {
-//  May 8, 2019    	results = createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName panic button was pushed", isStateChange: true)
-                	results = createEvent(name: "button", value: "pushed", descriptionText: "$device.displayName panic button was pushed", isStateChange: true)
+			    	results = createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName panic button was pushed", isStateChange: true)
                     panicContact()
                 }
 				else if (message?.command == 0x00) {
@@ -578,9 +578,7 @@ def strobe()
 	}
 
 private setModeHelper(String armMode, delay) {
-//	May 08, 2019
-//	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
-	sendEvent([name: "armMode", value: armMode, isStateChange: true])
+	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
     def lastUpdate = formatLocalTime(now())
     sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
 	sendStatusToDevice()
