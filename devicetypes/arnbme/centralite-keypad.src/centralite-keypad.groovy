@@ -12,6 +12,8 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  May 14, 2019 Arn Burkhoff for keypads non iris v2 keypad use beep(255) for siren and beep(0) for off
+ *								set tile off to execute off(), previously did nothing
  *  May 09, 2019 Arn Burkhoff undo changes to panic message at 193 and setModeHelper they are OK
  *  May 08, 2019 Arn Burkhoff createEvent and sendEvent ignored by St Platform if data not in map format is specified
  *							  Thanks to bamarayne for the suggested solution
@@ -96,7 +98,7 @@ metadata {
         }
 
         valueTile("temperature", "device.temperature", width: 2, height: 2) {
-            state "temperature", label: '${currentValue}Â°',
+            state "temperature", label: '${currentValue}°',
                 backgroundColors:[
                     [value: 31, color: "#153591"],
                     [value: 44, color: "#1e9cbb"],
@@ -122,9 +124,9 @@ metadata {
         }
         
 		standardTile("Mode", "device.armMode", decoration: "flat", canChangeBackground: true, width: 2, height: 2) {
-            state "disarmed", label:'OFF', icon:"st.Home.home2", backgroundColor:"#44b621"
-            state "armedStay", label:'OFF', icon:"st.Home.home3", backgroundColor:"#ffffff"
-            state "armedAway", label:'OFF', icon:"st.net.nest-away", backgroundColor:"#ffffff"
+            state "disarmed", action:"off", label:'OFF', icon:"st.Home.home2", backgroundColor:"#44b621"
+            state "armedStay", action:"off", label:'OFF', icon:"st.Home.home3", backgroundColor:"#ffffff"
+            state "armedAway", action:"off", label:'OFF', icon:"st.net.nest-away", backgroundColor:"#ffffff"
         }
         
         standardTile("beep", "device.beep", decoration: "flat", width: 2, height: 2) {
@@ -431,7 +433,7 @@ private Map getTemperatureResult(value) {
 		def v = value as int
 		value = v + offset
 	}
-	def descriptionText = "${linkText} was ${value}Â°${temperatureScale}"
+	def descriptionText = "${linkText} was ${value}°${temperatureScale}"
 	return [
 		name: 'temperature',
 		value: value,
@@ -558,19 +560,26 @@ def both()
 	}
 def off()
 	{
-    List cmds = ["raw 0x501 {19 01 04 00 00 01 01}",
-    			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
-	cmds
-//	setDisarmed()
+	if (device.getDataValue("model") == '3405-L')   
+		{
+	    List cmds = ["raw 0x501 {19 01 04 00 00 01 01}",
+				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
+		cmds
+		}
+	else
+		beep(0)
 	}
 def siren()
 	{
-/*	The hardware command does not work on a Centralite 3400 and unable to get device.data.model here in ST
- *	want to sound the beep for these devices
- */
-    List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
+//	logdebug "entered siren command model ${device.getDataValue('model')}"
+	if (device.getDataValue("model") == '3405-L')   
+		{
+		List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
     			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
-	cmds
+		cmds
+		}
+	else
+		beep(255)
 	}
 def strobe() 
 	{
