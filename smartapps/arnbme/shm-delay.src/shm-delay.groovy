@@ -20,10 +20,13 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad
+ *	May 08, 2019 v2.2.9  Undocumented ST Platform changes killed create and send events with data
+ *							requires updated keypad driver and changed code in keypadCodeHandler
  *	Mar 26, 2019 v2.2.8  Corrected keypad lights not properly see around statement 1034/5  fakeEvt = [value: theMode]
  *	Mar 14, 2019 v2.2.8  Change: Period not saved in Apple IOS, remove it as a phone number delimter
  *	Mar 12, 2019 v2.2.8  add phone number delimiters pound sign(#) and period(.) the semi colon no longer shows in android, nor is saved in IOS?
- *	Mar 03, 2019 v2.2.8  add flag to turn deub messages on, default is off
+ *	Mar 03, 2019 v2.2.8  add flag to turn debug messages on, default is off
  *	Mar 03, 2019 v2.2.8  log debugging for exit delay issue
  *	Feb 19, 2019 v2.2.7  globalPinPush was miscoded should have been globalBadPinPush around line 331 Send Bad Pin Push Notification
  *	Jan 06, 2019 V2.2.6  Added: Support for 3400_G Centralite V3
@@ -143,7 +146,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.8";
+	return "2.3.0";
 	}
 def main()
 	{
@@ -444,8 +447,9 @@ def keypadCodeHandler(evt)
 		{return false}			//just in case
 	def keypad = evt.getDevice();
 //	logdebug "keypadCodeHandler called: $evt by device : ${keypad.displayName}"
-	def codeEntered = evt.value as String				//the entered pin
-	def modeEntered = evt.data as Integer				//the selected mode off(0), stay(1), night(2), away(3)
+	def str = evt.value.split("[/]");
+	def codeEntered = str[0] as String				//the entered pin
+	def modeEntered = str[1] as Integer				//the selected mode off(0), stay(1), night(2), away(3)
 	def itext = [dummy: "dummy"]						//external find it data or dummy map to fake it when pin not found										
 	def fireBadPin=true									//flag to stop double band pin fire. Caused by timing issue 
 //															with Routine, Piston and UserRoutinePiston processing	
@@ -1078,7 +1082,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 
 def	keypadLighton(evt,theMode,keypad)
 	{
-//	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getModelName()} ${keypad?.getTypeName()}"
 	def currkeypadmode=""
 	if (theMode == 'Home')					//Alarm is off
 		{keypad.setDisarmed()}
@@ -1103,7 +1107,7 @@ def	keypadLighton(evt,theMode,keypad)
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
 //		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
 //		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
-		if (['3400','3400-G'].contains(keypad?.getModelName()) ||
+		if (['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()) ||	
 			keypad?.getTypeName()=="Internet Keypad")
 			{
 			if (evt.source=="keypad")
