@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	May 17, 2019 v2.3.0  Comment out some odd code in routine keypadLighton for night
  *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
  *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad, model URC4450BC0-X-R
@@ -1134,7 +1135,9 @@ def	keypadLighton(evt,theMode,keypad)
 //		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
 		if (['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()) ||	
 			keypad?.getTypeName()=="Internet Keypad")
-			{
+			keypad.setArmedNight()
+//			deprecated this odd code on May 17, 2019 Unsure why it's here				
+/*			{
 			if (evt.source=="keypad")
 				{keypad.setArmedNight()}
 			else
@@ -1149,7 +1152,7 @@ def	keypadLighton(evt,theMode,keypad)
 					{keypad.setArmedNight()}
 				}
 			}	
-		else	
+*/		else	
 			{keypad.setArmedStay()}
 		}	
 	else
