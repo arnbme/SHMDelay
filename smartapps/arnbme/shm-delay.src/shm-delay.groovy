@@ -20,7 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay
+ *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
  *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad, model URC4450BC0-X-R
  *	May 08, 2019 v2.2.9  Undocumented ST Platform changes killed create and send events with data
@@ -789,7 +789,7 @@ def keypadCodeHandler(evt)
 		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
 			{
 			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
-			log.debug "$am"
+//			log.debug "$am"
 			daexitdelay = mf."${am}"
 //			logdebug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
 			}
@@ -810,8 +810,14 @@ def keypadCodeHandler(evt)
 				if (modeEntered == 1 && it.hasCommand('setExitStay'))
 					it.setExitStay(internalExitDelay)
 				else
+//					Iris keypads do not respond to night mode commands
 				if (modeEntered == 2 && it.hasCommand('setExitNight'))
-					it.setExitNight(internalExitDelay)
+					{
+					if (['3400','3400-G','URC4450BC0-X-R'].contains(it?.getModelName()))	
+						it.setExitNight(internalExitDelay)
+					else	
+						it.setExitStay(internalExitDelay)
+					}
 				else
 					it.setExitDelay(internalExitDelay)
 				}
