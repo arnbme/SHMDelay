@@ -20,8 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
- *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad
+ *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad, model URC4450BC0-X-R
  *	May 08, 2019 v2.2.9  Undocumented ST Platform changes killed create and send events with data
  *							requires updated keypad driver and changed code in keypadCodeHandler
  *	Mar 26, 2019 v2.2.8  Corrected keypad lights not properly see around statement 1034/5  fakeEvt = [value: theMode]
@@ -270,6 +271,8 @@ def globalsPage()
 				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
 			if (globalKeypadControl)
 				{
+				input "globalUseAllExits", "bool", required: false, defaultValue:false,
+					title: "When arming with an Exit Delay and: Iris Partial or Centralite/UEI Stay/Night, blink respective icon instead of On/Away icon. Notice: On Centralite/UEI devices exit delay tones may not sound during these exits"
 				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
 					title: "I am using the RBoy Apps Keypad DTH"
 				def actions = location.helloHome?.getPhrases()*.label
@@ -799,14 +802,19 @@ def keypadCodeHandler(evt)
 		logdebug "entered exit delay for $am delay: ${internalExitDelay}"
 		globalKeypadDevices.each
 			{
-			if (modeEntered==3)
-				it.setExitDelay(internalExitDelay)
-			else	
-			if (modeEntered == 1 && it.hasCommand('setExitStay'))
-				it.setExitStay(internalExitDelay)
-			else
-			if (modeEntered == 2 && it.hasCommand('setExitNight'))
-				it.setExitNight(internalExitDelay)
+			if (globalUseAllExits)
+				{
+				if (modeEntered==3)
+					it.setExitDelay(internalExitDelay)
+				else	
+				if (modeEntered == 1 && it.hasCommand('setExitStay'))
+					it.setExitStay(internalExitDelay)
+				else
+				if (modeEntered == 2 && it.hasCommand('setExitNight'))
+					it.setExitNight(internalExitDelay)
+				else
+					it.setExitDelay(internalExitDelay)
+				}
 			else
 				it.setExitDelay(internalExitDelay)
 			}
