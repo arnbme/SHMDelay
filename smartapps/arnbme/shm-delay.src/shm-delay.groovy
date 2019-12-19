@@ -20,6 +20,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Dec 19, 2019 v3.0.0  Adjust for STHM and new ST app
+ *										1. New app has no routines and they being phased out of Classic, but if in Classic they can be used in New app
+ *											Add user flag that determines if Routines or Modes are set 							
  *	May 17, 2019 v2.3.0  Comment out some odd code in routine keypadLighton for night
  *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
@@ -149,7 +152,7 @@ preferences {
 
 def version()
 	{
-	return "2.3.0";
+	return "3.0.0";
 	}
 def main()
 	{
@@ -303,15 +306,32 @@ def globalsPage()
 					input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
 						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
 					}
-				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
-					title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
-				input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
-				input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Night executes Routine. Default: Good Night!"
-				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
-					title: "Keypad Away/On executes Routine. Default: Goodbye!"
-				input "globalPanic", "bool", required: true, defaultValue: true,
+				input "globalModesOrRoutines", "bool",  required: true, defaultValue: false, submitOnChange: true,
+					title: "When On: change Location Modes and that use rules: Off: use Classic Routines that set Location Mode and SHM Status. Default: False"
+				if (globalModesOrRoutines)
+					{
+					input "globalOffM", "mode", required: true, defaultValue: "Home",
+						title: "Keypad Disarmed/OFF sets Mode. Default: Home"
+					input "globalStayM", "mode", required: true, defaultValue: "Night",
+						title: "keypad Stay/Partial sets Mode. Default: Night"
+					input "globalNightM", "mode", required: true, defaultValue: "Night",
+						title: "Keypad Night sets Mode. Default: Night!"
+					input "globalAwayM", "mode",  required: true, defaultValue: "Away",
+						title: "Keypad Away/On sets Mode. Default: Away"
+					}
+				else			
+					{
+					input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
+						title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
+					input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
+						title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
+					input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
+						title: "Keypad Night executes Routine. Default: Good Night!"
+					input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
+						title: "Keypad Away/On executes Routine. Default: Goodbye!"
+					}
+					
+				input "globalPanic", "bool", required: true, defaultValue: true, 
 					title: "Iris Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
 //				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
