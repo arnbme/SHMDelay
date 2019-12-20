@@ -970,25 +970,37 @@ def execRoutine(aMap)
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalOff)
+		if (globalModesOrRoutines)
+			setLocationMode(globalOffM)
+		else	
+			location.helloHome?.execute(globalOff)
 		}
 	else
 	if (armMode == 'Stay')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalStay)
+		if (globalModesOrRoutines)
+			setLocationMode(globalStayM)
+		else	
+			location.helloHome?.execute(globalStay)
 		}
 	else
 	if (armMode == 'Night')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalNight)
+		if (globalModesOrRoutines)
+			setLocationMode(globalNightM)
+		else	
+			location.helloHome?.execute(globalNight)
 		}
 	else
 	if (armMode == 'Away')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalAway)
+		if (globalModesOrRoutines)
+			setLocationMode(globalAwayM)
+		else	
+			location.helloHome?.execute(globalAway)
 		} 
 	atomicState.kMap=kMap					//SHM Delay Child DoorOpens and MotionSensor active functions
 	}
