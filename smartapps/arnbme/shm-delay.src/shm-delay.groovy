@@ -20,9 +20,12 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
- *	Dec 19, 2019 v3.0.0  Adjust for STHM and new ST app
+ *	Dec 19, 2019 v2.4.0  Adjust for STHM and new ST app
  *										1. New app has no routines and they being phased out of Classic, but if in Classic they can be used in New app
- *											Add user flag that determines if Routines or Modes are set 							
+ *											Add user flag that determines if Routines or Modes are set
+ *										2, When modes or routine flags is true
+ *											Show modes instead of routines in Globals
+ *											Change location mode rather than execute a routine			
  *	May 17, 2019 v2.3.0  Comment out some odd code in routine keypadLighton for night
  *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
@@ -152,7 +155,7 @@ preferences {
 
 def version()
 	{
-	return "3.0.0";
+	return "2.4.0";
 	}
 def main()
 	{
@@ -307,15 +310,15 @@ def globalsPage()
 						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
 					}
 				input "globalModesOrRoutines", "bool",  required: true, defaultValue: false, submitOnChange: true,
-					title: "When On: change Location Modes and that use rules: Off: use Classic Routines that set Location Mode and SHM Status. Default: False"
+					title: "Modes or Routines switch determines how STHM/SHM Alarm Status is set. Default: On/True: Sets Location Mode, triggering Automation Rules in New or SHM Delay Modefix in Classic. Off/False: Use Routines (deprecated in Classic and not in New) triggering SHM Delay Modfix in Classic"
 				if (globalModesOrRoutines)
 					{
 					input "globalOffM", "mode", required: true, defaultValue: "Home",
 						title: "Keypad Disarmed/OFF sets Mode. Default: Home"
 					input "globalStayM", "mode", required: true, defaultValue: "Night",
-						title: "keypad Stay/Partial sets Mode. Default: Night"
+						title: "Keypad Stay/Partial sets Mode. Default: Night"
 					input "globalNightM", "mode", required: true, defaultValue: "Night",
-						title: "Keypad Night sets Mode. Default: Night!"
+						title: "Keypad Night sets Mode. Default: Night"
 					input "globalAwayM", "mode",  required: true, defaultValue: "Away",
 						title: "Keypad Away/On sets Mode. Default: Away"
 					}
