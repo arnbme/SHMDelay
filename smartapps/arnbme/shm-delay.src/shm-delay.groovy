@@ -20,6 +20,10 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	May 17, 2019 v2.3.0  Comment out some odd code in routine keypadLighton for night
+ *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
+ *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
+ *	May 14, 2019 v2.3.0  Add Support for XFinity branded UEI keypad, model URC4450BC0-X-R
  *	May 08, 2019 v2.2.9  Undocumented ST Platform changes killed create and send events with data
  *							requires updated keypad driver and changed code in keypadCodeHandler
  *	Mar 26, 2019 v2.2.8  Corrected keypad lights not properly see around statement 1034/5  fakeEvt = [value: theMode]
@@ -145,7 +149,7 @@ preferences {
 
 def version()
 	{
-	return "2.2.9";
+	return "2.3.0";
 	}
 def main()
 	{
@@ -268,6 +272,8 @@ def globalsPage()
 				title: "True Night Flag. When arming in Stay from a non keypad device, or Partial from an Iris keypad, and monitored sensor triggers:\nOn: Instant intrusion\nOff: Entry Delay"
 			if (globalKeypadControl)
 				{
+				input "globalUseAllExits", "bool", required: false, defaultValue:false,
+					title: "When arming with an Exit Delay and: Iris Partial or Centralite/UEI Stay/Night, blink respective icon instead of On/Away icon. Notice: On Centralite/UEI devices exit delay tones may not sound during these exits"
 				input "globalRboyDth", "bool", required: false, defaultValue:false, submitOnChange: true,
 					title: "I am using the RBoy Apps Keypad DTH"
 				def actions = location.helloHome?.getPhrases()*.label
@@ -784,6 +790,7 @@ def keypadCodeHandler(evt)
 		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
 			{
 			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
+//			log.debug "$am"
 			daexitdelay = mf."${am}"
 //			logdebug "Version ${mf.version()} the daexitdelay is ${daexitdelay}"
 			}
@@ -796,7 +803,27 @@ def keypadCodeHandler(evt)
 		logdebug "entered exit delay for $am delay: ${internalExitDelay}"
 		globalKeypadDevices.each
 			{
-			it.setExitDelay(internalExitDelay)
+			if (globalUseAllExits)
+				{
+				if (modeEntered==3)
+					it.setExitDelay(internalExitDelay)
+				else	
+				if (modeEntered == 1 && it.hasCommand('setExitStay'))
+					it.setExitStay(internalExitDelay)
+				else
+//					Iris keypads do not respond to night mode commands
+				if (modeEntered == 2 && it.hasCommand('setExitNight'))
+					{
+					if (['3400','3400-G','URC4450BC0-X-R'].contains(it?.getModelName()))	
+						it.setExitNight(internalExitDelay)
+					else	
+						it.setExitStay(internalExitDelay)
+					}
+				else
+					it.setExitDelay(internalExitDelay)
+				}
+			else
+				it.setExitDelay(internalExitDelay)
 			}
 		runIn(internalExitDelay, execRoutine, aMap)
 		def locevent = [name:"shmdelaytalk", value: "exitDelay", isStateChange: true,
@@ -1081,7 +1108,7 @@ def keypadLightHandler(evt)						//set the Keypad lights
 
 def	keypadLighton(evt,theMode,keypad)
 	{
-//	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getTypeName()}"
+	logdebug "keypadLighton entered $evt $theMode $keypad ${keypad?.getModelName()} ${keypad?.getTypeName()}"
 	def currkeypadmode=""
 	if (theMode == 'Home')					//Alarm is off
 		{keypad.setDisarmed()}
@@ -1106,9 +1133,11 @@ def	keypadLighton(evt,theMode,keypad)
 //		if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite" || 	Oct 10, 2018 v2.1.8
 //		if (keypad?.getModelName()!="3405-L" || 	V2.2.4 Nov 30, 2018
 //		if (keypad?.getModelName()=="3400" || 		v2.2.6 Jan 06, 2019
-		if (['3400','3400-G'].contains(keypad?.getModelName()) ||
+		if (['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()) ||	
 			keypad?.getTypeName()=="Internet Keypad")
-			{
+			keypad.setArmedNight()
+//			deprecated this odd code on May 17, 2019 Unsure why it's here				
+/*			{
 			if (evt.source=="keypad")
 				{keypad.setArmedNight()}
 			else
@@ -1123,7 +1152,7 @@ def	keypadLighton(evt,theMode,keypad)
 					{keypad.setArmedNight()}
 				}
 			}	
-		else	
+*/		else	
 			{keypad.setArmedStay()}
 		}	
 	else

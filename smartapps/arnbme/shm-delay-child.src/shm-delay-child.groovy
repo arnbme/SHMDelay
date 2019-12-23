@@ -22,6 +22,7 @@
  *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
+ *	May 14, 2019 v2.1.6  Add support for Xfinity branded UEI keypad
  *	Apr 07, 2019 v2.1.5  comment out logdebug "Modefix: ${modefix.id} ${modefix?.getInstallationState()}"
  *							modefix.id crashing user system and not used. 
  *	Mar 14, 2019 v2.1.4  Change: Period not saved in Apple IOS, remove it as a phone number delimter
@@ -154,7 +155,7 @@ preferences {
 
 def version()
 	{
-	return "2.1.5";
+	return "2.1.6";
 	}
 	
 def pageZeroVerify()
@@ -886,7 +887,9 @@ def doorOpensHandler(evt)
 //			if (it.getModelName()=="3400" && currkeypadmode=="")	Oct 10, 2018 add Rboy DTH support
 //			if (it.getModelName()!="3405-L" && currkeypadmode=="")  Nov 30, 2018 Rboy support for iris V3
 //			if (it.getModelName()=="3400" && currkeypadmode=="")	Jan 06, 2019 Centralite V3 support	
-			if (['3400','3400-G'].contains(keypad?.getModelName()) && currkeypadmode=="")
+//			if (['3400','3400-G'].contains(keypad?.getModelName()) && currkeypadmode=="") V2.1.6 May 14, 2019
+			if (currkeypadmode=="" &&
+				['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()))	
 				{
 				currkeypadmode = it?.currentValue("armMode")
 //				logdebug "keypad set currkeypadmode to $currkeypadmode"

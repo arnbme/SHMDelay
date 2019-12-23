@@ -18,6 +18,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *	May 14, 2019 	V0.1.8  add support for Xfinity branded UEI keypad
+ *	Mar 05, 2019 	V0.1.7  Added: Boolean flag for debug message logging, default false
+ *
  *	Jan 06, 2019 	V0.1.6  Added: Support for 3400_G Centralite V3
  *
  * 	Oct 17, 2018	v0.1.5	Allow user to set if entry and exit delays occur for a state/mode combination
@@ -57,7 +60,7 @@ preferences {
 
 def version()
 	{
-	return "0.1.6";
+	return "0.1.8";
 	}
 
 def pageOne(error_msg)
@@ -76,6 +79,11 @@ def pageOne(error_msg)
 			title: "Introduction",
 			required: false,
 			page: "aboutPage")
+			}
+		section ("Debugging messages")
+			{
+			input "logDebugs", "bool", required: false, defaultValue:false,
+				title: "Log debugging messages? Normally off/false"
 			}
 		section ("Alarm State: Disarmed / Off")
 			{
@@ -125,13 +133,14 @@ def pageOne(error_msg)
 			def showLights=false;
 			parent.globalKeypadDevices.each
 				{ keypad ->
-				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
-				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+				logdebug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
+//				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
+				if (['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()))	
 					{showLights=true}
 				}					
 			if (showLights)
 				{
-				section ("A model 3400 Keypad is defined\nSet the keypad Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
+				section ("A model 3400 or UEI Keypad is defined\nSet the keypad Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
 					{
 					stayModes.each
 						{
@@ -264,14 +273,14 @@ def pageTwo()
 			def showLights=false;
 			parent.globalKeypadDevices.each
 				{ keypad ->
-				log.debug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
+				logdebug "modefix ${keypad?.getModelName()} ${keypad?.getManufacturerName()}"
 //				if (keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")	//Iris = 3405-L
-				if (['3400','3400-G'].contains(keypad?.getModelName()))
+				if (['3400','3400-G','URC4450BC0-X-R'].contains(keypad?.getModelName()))	
 					{showLights=true}
 				}					
 			if (showLights)
 				{
-				section ("A model 3400 Keypad is defined\nSet the Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
+				section ("A model 3400 or UEI Keypad is defined\nSet the Light Icon and smartapp action: Stay (Entry Delay) or Night (Instant Intrusion) when setting Armed (Night) from non-keypad source")
 					{
 					stayModes.each
 						{
@@ -310,12 +319,12 @@ def aboutPage()
 
 
 def installed() {
-    log.debug "Installed with settings: ${settings}"
+    log.info "Installed with settings: ${settings}"
     initialize()
 }
 
 def updated() {
-    log.debug "Updated with settings: ${settings}"
+    log.info "Updated with settings: ${settings}"
     unsubscribe()
     initialize()
 }
@@ -340,7 +349,7 @@ def alarmStatusHandler(evt)
 		}
 	catch (e)
 		{}
-//	log.debug "alarm status entry ${fromST} ${theAlarm} ${evt.source}"
+//	logdebug "alarm status entry ${fromST} ${theAlarm} ${evt.source}"
 	if (theAlarm == "night")	//bad AlarmState set by unmodified Keypad module
 		{
   		def event = [
@@ -364,9 +373,9 @@ def alarmStatusHandler(evt)
 	else	
 	if (delaydata.startsWith("shmtruedelay"))	//ignore SHM Delay Child "true entry delay" alarm state changes
 		{
-		log.debug "Modefix ignoring True Entry Delay event, alarm state ${theAlarm}"
+		logdebug "Modefix ignoring True Entry Delay event, alarm state ${theAlarm}"
 		return false}
-	log.debug "ModeFix alarmStatusHandler entered alarm status change: ${theAlarm} Mode: ${theMode} "
+	logdebug "ModeFix alarmStatusHandler entered alarm status change: ${theAlarm} Mode: ${theMode} "
 //	Fix the mode to match the Alarm State. When user sets alarm from dashboard
 //	the Mode is not set, resulting in Smarthings having Schizophrenia or cognitive dissonance. 
 	def modeOK=false
@@ -420,8 +429,13 @@ def alarmStatusHandler(evt)
 		{
 		if (fromST)	
 			sendNotificationEvent("Modefix: Mode changed to ${theMode}. Cause: ${evt.source} set alarm to ${theAlarm}")
-		log.debug("ModeFix alarmStatusHandler Mode was changed From:$oldMode To:$theMode")
+		logdebug("ModeFix alarmStatusHandler Mode was changed From:$oldMode To:$theMode")
 		}
 	return theMode
 	}
+def logdebug(txt)
+	{
+   	if (logDebugs)
+   		log.debug ("${txt}")
+    }
 	
