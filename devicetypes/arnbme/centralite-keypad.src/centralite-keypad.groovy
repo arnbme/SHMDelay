@@ -1,5 +1,5 @@
 /**
- *  Centralite Keypad
+ *  Centralite,  Iris V2/V3 and UEI keypad DTH 
  *
  *  Copyright 2015-2016 Mitch Pond, Zack Cornelius
  *
@@ -12,10 +12,11 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Dec 31, 2019 Arn Burkhoff Add code for UEI and Iris V3 using code from Steve Jackson and my code in Hubitat
  *  May 14, 2019 Arn Burkhoff for keypads non iris v2 keypad use beep(255) for siren and beep(0) for off
  *								set tile off to execute off(), previously did nothing
  *  May 09, 2019 Arn Burkhoff undo changes to panic message at 193 and setModeHelper they are OK
- *  May 08, 2019 Arn Burkhoff createEvent and sendEvent ignored by St Platform if data not in Map format is specified
+ *  May 08, 2019 Arn Burkhoff createEvent and sendEvent ignored by St Platform if data not in map format is specified
  *							  Thanks to bamarayne for the suggested solution
  *							  In createCodeEntryEvent changed createEvent
  *							  In panic message processing change createEvent around statement 193	
@@ -24,22 +25,9 @@
  *  Apr 29, 2019 Arn Burkhoff Updated siren and off commands
  *  Apr 29, 2019 Arn Burkhoff added commands setExitNight setExitStay, capability Alarm.
  *							When Panic entered, internally issue siren command
- *  Sep 20, 2018 per ST tech support. Issue acknowlegement in HandleArmRequest
- *               disable routines: acknowledgeArmRequest and sendInvalidKeycodeResponse allowing SHM Delay to have no code changes
- *
- *  Sep 18, 2018 comment out health check in an attempt to fix timout issue  (no improvement) 
- *  Sep 04, 2018 add health check and vid for new phone app. 
- *  Mar 25, 2018 add volts to battery message 		
- *  Aug 25, 2017 deprecate change of Jul 12, 2017, change from Jul 25 & 26, 2017 remains but is no longer needed or used 		
- *  Jul 26, 2017 Stop entryDelay from updating field lastUpdate or alarm is not triggered in CoRE
- *			pistons that assume a time change means alarm mode(off or on) was reset
- *  Jul 25, 2017 in formatLocalTime add seconds to field lastUpdate. 
- * 			need seconds to catch a rearm within the open time delay in Core Front Door Opens piston
- * 			otherwise alarm sounds after rearm
- *  Jul 12, 2017 in sendStatustoDevice light Night button not HomeStay button (no such mode in SmartHome) 		
  */
 metadata {
-	definition (name: "Centralite Keypad", namespace: "arnbme", author: "Mitch Pond", vid: "generic-motion") {
+	definition (name: "Centralite Keypad", namespace: "arnbme", author: "Mitch Pond") {
 
 		capability "Alarm"
 		capability "Battery"
@@ -54,7 +42,6 @@ metadata {
 		capability "button"
         capability "polling"
         capability "Contact Sensor"
-//      capability "Health Check"
 		
 		attribute "armMode", "String"
         attribute "lastUpdate", "String"
@@ -73,6 +60,8 @@ metadata {
 		
 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0B05", outClusters: "0019,0501", manufacturer: "CentraLite", model: "3400", deviceJoinName: "Xfinity 3400-X Keypad"
 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0501,0B05,FC04", outClusters: "0019,0501", manufacturer: "CentraLite", model: "3405-L", deviceJoinName: "Iris 3405-L Keypad"
+ 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0B05", outClusters: "0003,0019,0501", manufacturer: "Universal Electronics Inc", model: "URC4450BC0-X-R", deviceJoinName: "Xfinity XHK1-UE Keypad" 
+ 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0405,0500,0501,0B05,FC01,FC02", outClusters: " 0003,0019,0501", manufacturer: "iMagic by GreatStar", model: "1112-S", deviceJoinName: "Iris V3 1112-S Keypad" 
 	}
 	
 	preferences{
@@ -82,6 +71,7 @@ metadata {
 				defaultValue: 1, displayDuringSetup: false)
                 
         input ("motionTime", "number", title: "Time in seconds for Motion to become Inactive (Default:10, 0=disabled)",	defaultValue: 10, displayDuringSetup: false)
+        input ("showVolts", "bool", title: "Turn on to show actual battery voltage x 10 as %. Default (Off) is calculated percentage", defaultValue: false, displayDuringSetup: false)
         input ("logdebugs", "bool", title: "Log debugging messages", defaultValue: false, displayDuringSetup: false)
         input ("logtraces", "bool", title: "Log trace messages", defaultValue: false, displayDuringSetup: false)
 	}
@@ -144,7 +134,7 @@ metadata {
         }
         
         standardTile("beep", "device.beep", decoration: "flat", width: 2, height: 2) {
-            state "default", action:"tone.beep", icon:"st.secondary.beep", backgroundColor:"#ffffff",label: "Beep" 
+            state "default", action:"tone.beep", icon:"st.secondary.beep", backgroundColor:"#ffffff",label: "Beep"
         }
         standardTile("siren", "device.alarm", decoration: "flat", width: 2, height: 2) {
             state "default", action:"alarm.siren", icon:"st.secondary.beep", backgroundColor:"#ffffff", label: "Alarm"
@@ -206,7 +196,7 @@ def parse(String description) {
                 	motionON()
 				}
                 else if (message?.command == 0x04) {
-				   	results = createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName panic button was pushed", isStateChange: true)
+			    	results = createEvent(name: "button", value: "pushed", data: [buttonNumber: 1], descriptionText: "$device.displayName panic button was pushed", isStateChange: true)
                     panicContact()
                 }
 				else if (message?.command == 0x00) {
@@ -268,7 +258,7 @@ def refresh() {
 		zigbee.readAttribute(0x0402,0x00)
 }
 
-private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss.SSS a z") {
+private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm a z") {
 	if (time instanceof Long) {
     	time = new Date(time)
     }
@@ -295,18 +285,15 @@ private parseReportAttributeMessage(String description) {
 	
 	if (descMap.cluster == "0001" && descMap.attrId == "0020") {
 		logdebug "Received battery level report"
-//		sendNotificationEvent ("Received battery level report descMap.value")
 		results = createEvent(getBatteryResult(Integer.parseInt(descMap.value, 16)))
 	}
     else if (descMap.cluster == "0001" && descMap.attrId == "0034")
     {
     	logdebug "Received Battery Rated Voltage: ${descMap.value}"
-//		sendNotificationEvent ("Received Battery Rated Voltage: descMap.value")
     }
     else if (descMap.cluster == "0001" && descMap.attrId == "0036")
     {
     	logdebug "Received Battery Alarm Voltage: ${descMap.value}"
-//		sendNotificationEvent ("Received Battery Alarm Voltage: descMap.value")
     }
 	else if (descMap.cluster == "0402" && descMap.attrId == "0000") {
 		def value = getTemperature(descMap.value)
@@ -398,7 +385,7 @@ def motionOFF() {
 def panicContact() {
 	logdebug "--- Panic button hit"
     sendEvent(name: "contact", value: "open", displayed: true, isStateChange: true)
-	siren()		
+    siren()
     runIn(3, "panicContactClose")
 }
 
@@ -407,33 +394,40 @@ def panicContactClose()
 	sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true)
 }
 
-//TODO: find actual good battery voltage range and update this method with proper values for min/max
-//
-//Converts the battery level response into a percentage to display in ST
-//and creates appropriate message for given level
-
 private getBatteryResult(rawValue) {
 	def linkText = getLinkText(device)
-
 	def result = [name: 'battery']
-
 	def volts = rawValue / 10
-	def descriptionText=""
-	if (volts > 3.5) {
-		result.descriptionText = "${linkText} battery has too much power (${volts} volts)."
-	}
-	else {
-		def minVolts = 2.5
-		def maxVolts = 3.0
+	def excessVolts=3.5			
+	def maxVolts=3.0
+	def minVolts=2.6
+
+	if (device.getDataValue("model") =='1112-S')	//adjust voltages for Iris V3
+		{
+		excessVolts=6.4
+		maxVolts=6.0
+		minVolts=5.2
+		}
+	else	
+	if (device.getDataValue("model").substring(0,3)!='340')	//adjust voltages if not Centralite 3400 or Iris 3405 V2 keypads, its a UEI device
+		{
+		excessVolts=7.2
+		maxVolts=6.8
+		minVolts=5.2
+		}
+	if (volts > excessVolts)
+		{
+		result.descriptionText = "${linkText} battery voltage: $volts, exceeds max voltage: $excessVolts"
+		result.value = Math.round(((volts * 100) / maxVolts))
+		}
+	else
+		{
 		def pct = (volts - minVolts) / (maxVolts - minVolts)
-//		result.value = Math.min(100, (int) pct * 100)
 		result.value = Math.min(100, Math.round(pct * 100))
-		descriptionText = "${linkText} battery was ${result.value}% $volts volts"
-		result.descriptionText = descriptionText
-		logdebug "$result"
-        result.value=rawValue        }
-//	sendNotificationEvent "${result.descriptionText}"
-//	sendNotificationEvent (descriptionText)
+		result.descriptionText = "${linkText} battery was ${result.value}% $volts volts"
+		}
+	if (showVolts)			//test if voltage setting is true
+	    result.value=rawValue
 	return result
 }
 
@@ -464,8 +458,14 @@ private Map getTemperatureResult(value) {
 
 //------Command handlers------//
 private handleArmRequest(message){
-	def keycode = new String(message.data[2..-2] as byte[],'UTF-8')
+	def keycode
 	def reqArmMode = message.data[0]
+//	def reqArmMode = message.data[0].substring(1)
+	if (device.getDataValue("model") == '1112-S' && reqArmMode != 0)		//Iris V3 sends pin on disarm only, otherwise set to 0000 
+		keycode = '0000'
+	else
+		keycode = new String(message.data[2..-2] as byte[],'UTF-8')
+
 	//state.lastKeycode = keycode
 	logdebug "Received arm command with keycode/armMode: ${keycode}/${reqArmMode}"
 
@@ -475,8 +475,11 @@ private handleArmRequest(message){
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 500"
 				]
 	def results = cmds?.collect { new physicalgraph.device.HubAction(it) } + createCodeEntryEvent(keycode, reqArmMode)
-	*/
-//	def results = createCodeEntryEvent(keycode, reqArmMode)
+	
+	def results = createCodeEntryEvent(keycode, reqArmMode)
+	logtrace "Method: handleArmRequest(message): "+results
+	return results
+*/
 	List cmds = [
 				 "raw 0x501 {09 01 00 0${reqArmMode}}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -494,9 +497,8 @@ def createCodeEntryEvent(keycode, armMode) {
 //	createEvent(name: "codeEntered", value: [code: "$keycode", mode: "$armMode"], isStateChange: true, displayed: false)
 	def newData=keycode+'/'+armMode
 	createEvent(name: "codeEntered", value: newData, isStateChange: true, displayed: false)
-//	createEvent(name: "codeEntered", value: newData, data: [armMode: armMode as String], 
-//		isStateChange: true, displayed: false)
 }
+
 
 //
 //The keypad seems to be expecting responses that are not in-line with the HA 1.2 spec. Maybe HA 1.3 or Zigbee 3.0??
@@ -508,7 +510,7 @@ private sendStatusToDevice() {
 	def status = ''
 	if (armMode == null || armMode == 'disarmed') status = 0
 	else if (armMode == 'armedAway') status = 3
-	else if (armMode == 'armedStay') status = 1	
+	else if (armMode == 'armedStay') status = 1
 	else if (armMode == 'armedNight') status = 2
 	
 	// If we're not in one of the 4 basic modes, don't update the status, don't want to override beep timings, exit delay is dependent on it being correct
@@ -562,12 +564,10 @@ def setArmedNight(def delay=0) { setModeHelper("armedNight",delay) }
 def setEntryDelay(delay) {
 	setModeHelper("entryDelay", delay)
 	sendRawStatus(5, delay) // Entry delay beeps
-
 }
 
 def setExitDelay(delay) {
-//	setModeHelper("exitDelay", delay)
-	setModeHelper("exitDelay", 0)
+	setModeHelper("exitDelay", delay)
 	sendRawStatus(10, delay)  // Exit delay
 }
 
@@ -589,26 +589,26 @@ def both()
 	}
 def off()
 	{
-	if (device.getDataValue("model") == '3405-L')   
+	if (device.getDataValue("model").contains ('3400') || device.getDataValue("model").substring(0,3)=='URC')							
+		beep(0)
+	else
 		{
 	    List cmds = ["raw 0x501 {19 01 04 00 00 01 01}",
 				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 		cmds
 		}
-	else
-		beep(0)
 	}
 def siren()
 	{
 //	logdebug "entered siren command model ${device.getDataValue('model')}"
-	if (device.getDataValue("model") == '3405-L')   
+	if (device.getDataValue("model").contains ('3400') || device.getDataValue("model").substring(0,3)=='URC')							
+		beep(255)
+	else
 		{
 		List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
     			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 		cmds
 		}
-	else
-		beep(255)
 	}
 def strobe() 
 	{
@@ -636,7 +636,7 @@ private setKeypadArmMode(armMode){
 }
 
 def acknowledgeArmRequest(armMode){
-	return false
+	return false  //to match my personal version Dec 31, 2019
 	List cmds = [
 				 "raw 0x501 {09 01 00 0${armMode}}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -647,7 +647,7 @@ def acknowledgeArmRequest(armMode){
 }
 
 def sendInvalidKeycodeResponse(){
-	return false
+	return false  //to match my personal version Dec 31, 2019
 	List cmds = [
 				 "raw 0x501 {09 01 00 04}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -662,14 +662,10 @@ def beep(def beepLength = settings.beepLength) {
 	{
 		beepLength = 0
 	}
-
 	def len = zigbee.convertToHexString(beepLength, 2)
-//	List cmds = ["raw 0x501 {09 01 04 05${len}}", 'delay 200',
-//				 "send 0x${device.deviceNetworkId} 1 1", 'delay 500']
 	List cmds = ["raw 0x501 {09 01 04 05${len}}",
-				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
+		     "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 	cmds
-//	return (cmds?.collect { new physicalgraph.device.HubAction(it) }
 }
 
 //------Utility methods------//
