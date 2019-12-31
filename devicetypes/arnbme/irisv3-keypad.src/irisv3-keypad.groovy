@@ -458,7 +458,7 @@ private Map getTemperatureResult(value) {
 private handleArmRequest(message){
 	def keycode
 	def reqArmMode = message.data[0]
-	if (reqArmMode != '0')		//Iris V3 sends pin on disarm only, otherwise set to 0000 
+	if (reqArmMode != 0)		//Iris V3 sends pin on disarm only, otherwise set to 0000 
 		keycode = '0000'
 	else
 		keycode = new String(message.data[2..-2] as byte[],'UTF-8')
