@@ -35,7 +35,7 @@
  *			      When Panic entered, internally issue siren command
  */
 metadata {
-	definition (name: "IrisV3 Keypad", namespace: "arnbme", author: "Mitch Pond") {
+	definition (name: "Centralite Keypad", namespace: "arnbme", author: "Mitch Pond") {
 
 		capability "Alarm"
 		capability "Battery"
