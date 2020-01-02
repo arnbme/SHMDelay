@@ -402,17 +402,10 @@ private getBatteryResult(rawValue) {
 	def maxVolts=3.0
 	def minVolts=2.6
 
-	if (device.getDataValue("model") =='1112-S')	//adjust voltages for Iris V3
+	if (device.getDataValue("model").substring(0,3)!='340')	//UEI and Iris V3 use 4AA batteries, 6volts
 		{
-		excessVolts=6.4
+		excessVolts=6.8
 		maxVolts=6.0
-		minVolts=5.2
-		}
-	else	
-	if (device.getDataValue("model").substring(0,3)!='340')	//adjust voltages if not Centralite 3400 or Iris 3405 V2 keypads, its a UEI device
-		{
-		excessVolts=7.2
-		maxVolts=6.8
 		minVolts=5.2
 		}
 	if (volts > excessVolts)
@@ -636,7 +629,6 @@ private setKeypadArmMode(armMode){
 }
 
 def acknowledgeArmRequest(armMode){
-	return false  //to match my personal version Dec 31, 2019
 	List cmds = [
 				 "raw 0x501 {09 01 00 0${armMode}}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
@@ -647,7 +639,6 @@ def acknowledgeArmRequest(armMode){
 }
 
 def sendInvalidKeycodeResponse(){
-	return false  //to match my personal version Dec 31, 2019
 	List cmds = [
 				 "raw 0x501 {09 01 00 04}",
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
