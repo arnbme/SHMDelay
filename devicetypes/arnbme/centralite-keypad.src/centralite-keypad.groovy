@@ -1,5 +1,5 @@
 /**
- *  Centralite Keypad
+ *  Centralite,  Iris V2/V3 and UEI keypad DTH 
  *
  *  Copyright 2015-2016 Mitch Pond, Zack Cornelius
  *
@@ -12,6 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Dec 31, 2019 Arn Burkhoff Add code for UEI and Iris V3 using code from Steve Jackson and my code in Hubitat
  *  May 14, 2019 Arn Burkhoff for keypads non iris v2 keypad use beep(255) for siren and beep(0) for off
  *								set tile off to execute off(), previously did nothing
  *  May 09, 2019 Arn Burkhoff undo changes to panic message at 193 and setModeHelper they are OK
@@ -59,6 +60,8 @@ metadata {
 		
 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0B05", outClusters: "0019,0501", manufacturer: "CentraLite", model: "3400", deviceJoinName: "Xfinity 3400-X Keypad"
 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0501,0B05,FC04", outClusters: "0019,0501", manufacturer: "CentraLite", model: "3405-L", deviceJoinName: "Iris 3405-L Keypad"
+ 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0500,0B05", outClusters: "0003,0019,0501", manufacturer: "Universal Electronics Inc", model: "URC4450BC0-X-R", deviceJoinName: "Xfinity XHK1-UE Keypad" 
+ 		fingerprint endpointId: "01", profileId: "0104", deviceId: "0401", inClusters: "0000,0001,0003,0020,0402,0405,0500,0501,0B05,FC01,FC02", outClusters: " 0003,0019,0501", manufacturer: "iMagic by GreatStar", model: "1112-S", deviceJoinName: "Iris V3 1112-S Keypad" 
 	}
 	
 	preferences{
@@ -68,6 +71,7 @@ metadata {
 				defaultValue: 1, displayDuringSetup: false)
                 
         input ("motionTime", "number", title: "Time in seconds for Motion to become Inactive (Default:10, 0=disabled)",	defaultValue: 10, displayDuringSetup: false)
+        input ("showVolts", "bool", title: "Turn on to show actual battery voltage x 10 as %. Default (Off) is calculated percentage", defaultValue: false, displayDuringSetup: false)
         input ("logdebugs", "bool", title: "Log debugging messages", defaultValue: false, displayDuringSetup: false)
         input ("logtraces", "bool", title: "Log trace messages", defaultValue: false, displayDuringSetup: false)
 	}
@@ -390,29 +394,33 @@ def panicContactClose()
 	sendEvent(name: "contact", value: "closed", displayed: true, isStateChange: true)
 }
 
-//TODO: find actual good battery voltage range and update this method with proper values for min/max
-//
-//Converts the battery level response into a percentage to display in ST
-//and creates appropriate message for given level
-
 private getBatteryResult(rawValue) {
 	def linkText = getLinkText(device)
-
 	def result = [name: 'battery']
-
 	def volts = rawValue / 10
-	def descriptionText
-	if (volts > 3.5) {
-		result.descriptionText = "${linkText} battery has too much power (${volts} volts)."
-	}
-	else {
-		def minVolts = 2.5
-		def maxVolts = 3.0
+	def excessVolts=3.5			
+	def maxVolts=3.0
+	def minVolts=2.6
+
+	if (device.getDataValue("model").substring(0,3)!='340')	//UEI and Iris V3 use 4AA batteries, 6volts
+		{
+		excessVolts=6.8
+		maxVolts=6.0
+		minVolts=5.2
+		}
+	if (volts > excessVolts)
+		{
+		result.descriptionText = "${linkText} battery voltage: $volts, exceeds max voltage: $excessVolts"
+		result.value = Math.round(((volts * 100) / maxVolts))
+		}
+	else
+		{
 		def pct = (volts - minVolts) / (maxVolts - minVolts)
 		result.value = Math.min(100, Math.round(pct * 100))
-		result.descriptionText = "${linkText} battery was ${result.value}%"
-	}
-
+		result.descriptionText = "${linkText} battery was ${result.value}% $volts volts"
+		}
+	if (showVolts)			//test if voltage setting is true
+	    result.value=rawValue
 	return result
 }
 
@@ -443,8 +451,14 @@ private Map getTemperatureResult(value) {
 
 //------Command handlers------//
 private handleArmRequest(message){
-	def keycode = new String(message.data[2..-2] as byte[],'UTF-8')
+	def keycode
 	def reqArmMode = message.data[0]
+//	def reqArmMode = message.data[0].substring(1)
+	if (device.getDataValue("model") == '1112-S' && reqArmMode != 0)		//Iris V3 sends pin on disarm only, otherwise set to 0000 
+		keycode = '0000'
+	else
+		keycode = new String(message.data[2..-2] as byte[],'UTF-8')
+
 	//state.lastKeycode = keycode
 	logdebug "Received arm command with keycode/armMode: ${keycode}/${reqArmMode}"
 
@@ -454,8 +468,16 @@ private handleArmRequest(message){
 				 "send 0x${device.deviceNetworkId} 1 1", "delay 500"
 				]
 	def results = cmds?.collect { new physicalgraph.device.HubAction(it) } + createCodeEntryEvent(keycode, reqArmMode)
-	*/
+	
 	def results = createCodeEntryEvent(keycode, reqArmMode)
+	logtrace "Method: handleArmRequest(message): "+results
+	return results
+*/
+	List cmds = [
+				 "raw 0x501 {09 01 00 0${reqArmMode}}",
+				 "send 0x${device.deviceNetworkId} 1 1", "delay 100"
+				]
+	def results = cmds?.collect { new physicalgraph.device.HubAction(it) } + createCodeEntryEvent(keycode, reqArmMode)     
 	logtrace "Method: handleArmRequest(message): "+results
 	return results
 }
@@ -560,26 +582,26 @@ def both()
 	}
 def off()
 	{
-	if (device.getDataValue("model") == '3405-L')   
+	if (device.getDataValue("model").contains ('3400') || device.getDataValue("model").substring(0,3)=='URC')							
+		beep(0)
+	else
 		{
 	    List cmds = ["raw 0x501 {19 01 04 00 00 01 01}",
 				 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 		cmds
 		}
-	else
-		beep(0)
 	}
 def siren()
 	{
 //	logdebug "entered siren command model ${device.getDataValue('model')}"
-	if (device.getDataValue("model") == '3405-L')   
+	if (device.getDataValue("model").contains ('3400') || device.getDataValue("model").substring(0,3)=='URC')							
+		beep(255)
+	else
 		{
 		List cmds = ["raw 0x501 {19 01 04 07 00 01 01}",
     			 "send 0x${device.deviceNetworkId} 1 1", 'delay 100']
 		cmds
 		}
-	else
-		beep(255)
 	}
 def strobe() 
 	{
@@ -587,9 +609,13 @@ def strobe()
 	}
 
 private setModeHelper(String armMode, delay) {
+	logdebug "In setmodehelper armMode: $armMode delay: $delay"
 	sendEvent([name: "armMode", value: armMode, data: [delay: delay as int], isStateChange: true])
-    def lastUpdate = formatLocalTime(now())
-    sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
+	if (armMode != 'entryDelay')
+		{
+		def lastUpdate = formatLocalTime(now())
+		sendEvent(name: "lastUpdate", value: lastUpdate, displayed: false)
+		}
 	sendStatusToDevice()
 }
 
