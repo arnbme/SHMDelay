@@ -20,6 +20,19 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Dec 23, 2019 v2.4.1  add routine isNewStApp to test if running in New or Classic Smartapp fow uses globalModesOrRoutines flag
+ *	Dec 23, 2019 v2.4.1  found new app setting Child profiles to INCOMPLETE to be the issue with child apps, removed toUpperCase
+ *										did not code work around waiting for ST to fix this
+ *										Talker Ok; Delay and User set INCOMPLETE,  Modefix untested
+ *	Dec 23, 2019 v2.4.1  sendPushMessage fails in new ST smartapp. Use sendPush in new app
+ *	Dec 21, 2019 v2.4.0  Adjust testing for app being complete use toUpperCase on all tests for ST app compatability (deprecated Dec 23, 2019)
+ *	Dec 19, 2019 v2.4.0  Adjust for STHM and new ST app
+ *										1. New app has no routines and they being phased out of Classic, but if in Classic they can be used in New app
+ *											Add user flag that determines if Routines or Modes are set
+ *										2, When modes or routine flags is true
+ *											Show modes instead of routines in Globals
+ *											Change location mode rather than execute
+ *										3. Unable to set STHM status, create automation rules
  *	May 17, 2019 v2.3.0  Comment out some odd code in routine keypadLighton for night
  *	May 17, 2019 v2.3.0  Add globalUseAllExits flag giving User control to setExitNight and setExitStay, use setExitStay vs setExitNight on Iris devices
  *	May 14, 2019 v2.3.0  Add logic to issue setExitNight and setExitStay for all devices, UEI seems to act up with using away in other modes
@@ -149,26 +162,35 @@ preferences {
 
 def version()
 	{
-	return "2.3.0";
+	return "2.4.1";
 	}
 def main()
 	{
 	dynamicPage(name: "main", install: true, uninstall: true)
 		{
-		if (app.getInstallationState() == 'COMPLETE')	//note documentation shows as lower case, but returns upper
+//		log.debug "In main***** ${app.getInstallationState()}"
+		if (app.getInstallationState()== 'COMPLETE')	//note documentation shows as lower case, but returns upper
 			{  
 			def modeFixChild="Create"
-			def children = getChildApps()
+//			def children = getChildApps()
+			def children = getAllChildApps()
 			children.each
 				{ child ->
 				def childLabel = child.getLabel()
 				def appid=app.getId()
+//				log.debug "Warning1 child label ${childLabel} is status ${child.getInstallationState()}"
+				if (child.getInstallationState() != 'COMPLETE')
+					{
+					logdebug "Warning2 child label ${child.getLabel()} is status ${child.getInstallationState()}"
+					}
+				else
+				{
 //				logdebug "child label ${childLabel} ${appid}"
 				if (childLabel.matches("(.*)(?i)ModeFix(.*)"))	
 					{
 					modeFixChild="Update"
 					}
-				}
+				}}
 			def modeActive=" Inactive"
 			if (globalFixMode || globalKeypadControl)
 				{modeActive=" Active"}
@@ -303,15 +325,32 @@ def globalsPage()
 					input "globalKeypadExitDelay", "number", required: true, range: "0..90", defaultValue: 30,
 						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
 					}
-				input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
-					title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
-				input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
-				input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
-					title: "Keypad Night executes Routine. Default: Good Night!"
-				input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
-					title: "Keypad Away/On executes Routine. Default: Goodbye!"
-				input "globalPanic", "bool", required: true, defaultValue: true,
+				input "globalModesOrRoutines", "bool",  required: true, defaultValue: false, submitOnChange: true,
+					title: "Modes or Routines switch determines how STHM/SHM Alarm Status is set. Default: On/True: Sets Location Mode, triggering Automation Rules in New or SHM Delay Modefix in Classic. Off/False: Use Routines (deprecated in Classic and not in New) triggering SHM Delay Modfix in Classic"
+				if (globalModesOrRoutines)
+					{
+					input "globalOffM", "mode", required: true, defaultValue: "Home",
+						title: "Keypad Disarmed/OFF sets Mode. Default: Home"
+					input "globalStayM", "mode", required: true, defaultValue: "Night",
+						title: "Keypad Stay/Partial sets Mode. Default: Night"
+					input "globalNightM", "mode", required: true, defaultValue: "Night",
+						title: "Keypad Night sets Mode. Default: Night"
+					input "globalAwayM", "mode",  required: true, defaultValue: "Away",
+						title: "Keypad Away/On sets Mode. Default: Away"
+					}
+				else			
+					{
+					input "globalOff", "enum", options: actions, required: true, defaultValue: "I'm Back!",
+						title: "Keypad Disarmed/OFF executes Routine. Default: I'm Back!"
+					input "globalStay", "enum", options: actions, required: true, defaultValue: "Good Night!",
+						title: "Keypad Stay/Partial executes Routine. Default: Good Night!"
+					input "globalNight", "enum", options: actions, required: true, defaultValue: "Good Night!",
+						title: "Keypad Night executes Routine. Default: Good Night!"
+					input "globalAway", "enum", options: actions, required: true, defaultValue: "Goodbye!",
+						title: "Keypad Away/On executes Routine. Default: Goodbye!"
+					}
+					
+				input "globalPanic", "bool", required: true, defaultValue: true, 
 					title: "Iris Panic Key is Monitored. No Panic key? Set this flag on, add a User Profile, Pin Usage: Panic. Default: On/True"
 //				input "globalBadpins", "number", required: true, range: "0..5", defaultValue: 1,
 //					title: "Sound invalid pin code tone on keypad after how many invalid pin code entries. 0 = disabled, range: 1-5, default: 1"
@@ -478,6 +517,13 @@ def keypadCodeHandler(evt)
 //	Try to find a matching pin in the pin child apps	
 //	def userApps = getChildApps()		//gets all completed child apps Sep 20, 2018
 	def userApps = findAllChildAppsByName('SHM Delay User')
+	if (logDebugs)
+		{
+		userApps.each 	
+			{
+			log.debug ("user data ${it.getInstallationState()} ${it.getName()} ${it.theuserpin} ${it.theusername} ")
+			}
+		}
 	userApps.find 	
 		{
 //		if (it.getName()=="SHM Delay User" && it.theuserpin == codeEntered)	Sep 20, 2018
@@ -787,7 +833,7 @@ def keypadCodeHandler(evt)
 		{
 		mf=findChildAppByName('SHM Delay ModeFix')
 //		logdebug "${mf.getInstallationState()} ${mf.version()}"
-		if (mf && mf.getInstallationState() == 'COMPLETE' && mf.version() > '0.1.4')
+		if (mf && mf.getInstallationState()== 'COMPLETE' && mf.version() > '0.1.4')
 			{
 			am="${alarmModes[modeEntered]}Exit${armModes[modeEntered]}"
 //			log.debug "$am"
@@ -950,25 +996,37 @@ def execRoutine(aMap)
 	if (armMode == 'Home')					
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalOff)
+		if (globalModesOrRoutines)
+			setLocationMode(globalOffM)
+		else	
+			location.helloHome?.execute(globalOff)
 		}
 	else
 	if (armMode == 'Stay')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalStay)
+		if (globalModesOrRoutines)
+			setLocationMode(globalStayM)
+		else	
+			location.helloHome?.execute(globalStay)
 		}
 	else
 	if (armMode == 'Night')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalNight)
+		if (globalModesOrRoutines)
+			setLocationMode(globalNightM)
+		else	
+			location.helloHome?.execute(globalNight)
 		}
 	else
 	if (armMode == 'Away')
 		{
 		keypadLightHandler(kbMap)
-		location.helloHome?.execute(globalAway)
+		if (globalModesOrRoutines)
+			setLocationMode(globalAwayM)
+		else	
+			location.helloHome?.execute(globalAway)
 		} 
 	atomicState.kMap=kMap					//SHM Delay Child DoorOpens and MotionSensor active functions
 	}
@@ -1698,7 +1756,12 @@ def checkOpenContacts (contactList, notifyOptions, keypad)
 				}
 			else
 			if (it=='Push Msg')
-				{sendPushMessage(contactmsg)}
+				{
+				if (isNewStApp())
+					sendPush(contactmsg)			
+				else
+					sendPushMessage(contactmsg)	//does not send message in new ST app
+				}
 			else
 			if (it=='SMS' && globalPinPhone)
 				{
@@ -1727,4 +1790,18 @@ def logdebug(txt)
    	if (logDebugs)
    		log.debug ("${txt}")
     }
+
+/*	Determine if running in 
+ *	Classic app returns false
+ *	New SmartThings app returns true
+ * Dec 23, 2019 using ModesOrRoutines flag until and if ever real code can be developed
+*/
+def isNewStApp() 
+	{ 
+	if (globalModesOrRoutines)
+		return true
+	else
+		return false
+	}
+    
 	
