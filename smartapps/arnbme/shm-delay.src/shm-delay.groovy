@@ -20,6 +20,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  * 
+ *	Feb 10, 2020 v2.4.2  correct documntation for GlobalModesOrRoutines, adjust Modefix documentation 
  *	Dec 23, 2019 v2.4.1  add routine isNewStApp to test if running in New or Classic Smartapp fow uses globalModesOrRoutines flag
  *	Dec 23, 2019 v2.4.1  found new app setting Child profiles to INCOMPLETE to be the issue with child apps, removed toUpperCase
  *										did not code work around waiting for ST to fix this
@@ -162,7 +163,7 @@ preferences {
 
 def version()
 	{
-	return "2.4.1";
+	return "2.4.2";
 	}
 def main()
 	{
@@ -281,12 +282,12 @@ def globalsPage()
 			if (globalKeypadControl)
 				{
 				input "globalFixMode", "bool", required: true, defaultValue: true,
-					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm state\nthen set keypad status and lights to match system.\nDefault: On/True"
+					title: "Mode Fix: Syncronize arm state and location mode when either changes from any source. Default: On/True\nAlarm State changes - verifies and sets a valid SHM or STHM mode, syncronizes keypad status and lights.\nSHM Mode changes - verifies and sets SHM Alarm state, syncronizes keypad status and lights"
 				}
 			else	
 				{
-				input "globalFixMode", "bool", required: true, defaultValue: false,
-					title: "Mode Fix when system armed from non keypad source: \nAlarm State change - verify and set a valid SHM mode\nSHM Mode change - verify and set Alarm status.\nDefault: Off/False"
+				input "globalFixMode", "bool", required: true, defaultValue: true,
+					title: "Mode Fix: Syncronize arm state and location mode when either changes from any source. Default: On/True\nAlarm State changes - verifies and sets a valid SHM or STHM mode\nSHM Mode changes - verifies and sets SHM Alarm state"
 				}
 //			input "globalKeypad", "bool", required: true, defaultValue: false,		//deprecated Was used with Version1
 //				title: "The upgraded Keypad module is installed Default: Off/False"
@@ -326,7 +327,7 @@ def globalsPage()
 						title: "Default True exit delay in seconds when arming with a delay. range 0-90, default:30"
 					}
 				input "globalModesOrRoutines", "bool",  required: true, defaultValue: false, submitOnChange: true,
-					title: "Modes or Routines switch determines how STHM/SHM Alarm Status is set. Default: On/True: Sets Location Mode, triggering Automation Rules in New or SHM Delay Modefix in Classic. Off/False: Use Routines (deprecated in Classic and not in New) triggering SHM Delay Modfix in Classic"
+					title: "Modes or Routines switch determines how STHM/SHM Alarm Status is set. Must be On/True with new app and STHM\n\nDefault: Off/False: Use Routines (Use with SHM in Classic only) triggering SHM Delay Modfix in Classic\n\nOn/True: Sets Location Mode, In New phoneapp with STHM triggers Automation Rules to set system arm state, in Classic phone app with SHM triggers SHM Delay Modefix" 
 				if (globalModesOrRoutines)
 					{
 					input "globalOffM", "mode", required: true, defaultValue: "Home",
